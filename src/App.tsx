@@ -2,27 +2,28 @@ import React, { useState, useEffect } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import DashboardPage from './pages/DashboardPage';
 import LoginPage from './pages/LoginPage';
+import AddPropertyPage from './pages/AddPropertyPage';
+import MainLayout from './components/MainLayout'; 
 import './App.css';
 
 type User = { name: string; email: string };
 
 function App() {
   const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true); // Add a loading state
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     fetch(`${process.env.REACT_APP_BACKEND_URL}/me`, {credentials: 'include'})
       .then(res => res.json())
       .then(data => {
         setUser(data.error ? null : data);
-        setLoading(false); // Set loading to false after fetch completes
+        setLoading(false);
       });
   }, []);
 
   const handleLogin = () => { window.location.href = `${process.env.REACT_APP_BACKEND_URL}/login`; };
   const handleLogout = () => { window.location.href = `${process.env.REACT_APP_BACKEND_URL}/logout`; };
 
-  // Show a loading message while we check the user's status
   if (loading) {
     return <div className="text-center p-8">Loading...</div>;
   }
@@ -30,7 +31,9 @@ function App() {
   return (
     <Routes>
       <Route path="/" element={!user ? <LoginPage handleLogin={handleLogin} /> : <Navigate to="/dashboard" />} />
-      <Route path="/dashboard" element={user ? <DashboardPage user={user} handleLogout={handleLogout} /> : <Navigate to="/" />} />
+      <Route path="/dashboard" element={user ? <MainLayout handleLogout={handleLogout}><DashboardPage user={user} handleLogout={handleLogout} /></MainLayout> : <Navigate to="/" />} />
+      {/* 👇 Add the MainLayout wrapper back to this route */}
+      <Route path="/add-property" element={user ? <MainLayout handleLogout={handleLogout}><AddPropertyPage /></MainLayout> : <Navigate to="/" />} />
     </Routes>
   );
 }

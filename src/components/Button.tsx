@@ -1,5 +1,3 @@
-
-
 import React from 'react';
 
 // Define the "blueprint" for our component's props
@@ -7,10 +5,11 @@ type ButtonProps = {
   onClick?: () => void;
   children: React.ReactNode;
   variant?: 'primary' | 'secondary';
-  className?: string; // 
+  className?: string;
+  type?: 'button' | 'submit' | 'reset'; // 👈 Add type property here
 }
 
-export default function Button({ onClick, children, variant = 'primary', className='' }: ButtonProps) {
+export default function Button({ onClick, children, variant = 'primary', className='', type = 'button' }: ButtonProps) {
   const baseClasses = "w-full py-3 px-4 font-bold rounded-lg flex items-center justify-center space-x-2 focus:outline-none focus:ring-2 focus:ring-offset-2 transition-colors duration-300";
 
   // Airbnb-style color variants
@@ -20,7 +19,7 @@ export default function Button({ onClick, children, variant = 'primary', classNa
   };
 
   return (
-     <button onClick={onClick} className={`${baseClasses} ${variants[variant]} ${className}`}>
+     <button type={type} onClick={onClick} className={`${baseClasses} ${variants[variant]} ${className}`}>
       {children}
     </button>
   );
