@@ -4,6 +4,8 @@ import DashboardPage from './pages/DashboardPage';
 import LoginPage from './pages/LoginPage';
 import AddPropertyPage from './pages/AddPropertyPage';
 import MainLayout from './components/MainLayout'; 
+import FavoritesPage from './pages/FavoritesPage';
+import DashboardLayout from './components/DashboardLayout';
 import './App.css';
 
 type User = { name: string; email: string };
@@ -31,9 +33,9 @@ function App() {
   return (
     <Routes>
       <Route path="/" element={!user ? <LoginPage handleLogin={handleLogin} /> : <Navigate to="/dashboard" />} />
-      <Route path="/dashboard" element={user ? <MainLayout handleLogout={handleLogout}><DashboardPage user={user} handleLogout={handleLogout} /></MainLayout> : <Navigate to="/" />} />
-      {/* 👇 Add the MainLayout wrapper back to this route */}
+      <Route path="/dashboard" element={user ? <DashboardLayout handleLogout={handleLogout}><DashboardPage user={user} handleLogout={handleLogout} /></DashboardLayout> : <Navigate to="/" />} />
       <Route path="/add-property" element={user ? <MainLayout handleLogout={handleLogout}><AddPropertyPage /></MainLayout> : <Navigate to="/" />} />
+      <Route path="/favorites" element={user ? <DashboardLayout handleLogout={handleLogout}><FavoritesPage /></DashboardLayout> : <Navigate to="/" />} />
     </Routes>
   );
 }

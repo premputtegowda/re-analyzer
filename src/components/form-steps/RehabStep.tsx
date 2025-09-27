@@ -1,0 +1,151 @@
+import React, { useState } from 'react';
+import { useFormContext, useFieldArray } from 'react-hook-form';
+import { PropertyData } from '../../types/property';
+import { Trash2 } from 'lucide-react';
+
+export default function RehabStep() {
+  const [activeRehabTab, setActiveRehabTab] = useState<'hardCosts' | 'softCosts'>('hardCosts');
+  const { register } = useFormContext<PropertyData>();
+
+  const { fields: hardCostFields, append: appendHardCost, remove: removeHardCost } = useFieldArray({
+    name: "rehab.hardCosts",
+  });
+
+  const { fields: softCostFields, append: appendSoftCost, remove: removeSoftCost } = useFieldArray({
+    name: "rehab.softCosts",
+  });
+  
+  const { fields: lostRevenueFields, append: appendLostRevenue, remove: removeLostRevenue } = useFieldArray({
+    name: "rehab.lostRevenueAndCosts",
+  });
+
+  return (
+    <>
+      <div className="mb-6 text-center">
+        <h2 className="text-2xl font-bold text-slate-800">Step 5: Development/Rehab</h2>
+        <p className="text-slate-500">Add any development or rehab costs here.</p>
+      </div>
+      
+      <div className="flex border-b">
+        <button
+          type="button"
+          onClick={() => setActiveRehabTab('hardCosts')}
+          className={`px-4 py-2 -mb-px border-b-2 ${activeRehabTab === 'hardCosts' ? 'border-rose-500 text-rose-600' : 'border-transparent text-slate-500'}`}
+        >
+          Hard Costs
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveRehabTab('softCosts')}
+          className={`px-4 py-2 -mb-px border-b-2 ${activeRehabTab === 'softCosts' ? 'border-rose-500 text-rose-600' : 'border-transparent text-slate-500'}`}
+        >
+          Soft Costs
+        </button>
+      </div>
+
+      {activeRehabTab === 'hardCosts' && (
+        <div className="space-y-4 pt-4">
+          {hardCostFields.map((field, index) => (
+            <div key={field.id} className="flex items-center gap-4">
+              <input
+                {...register(`rehab.hardCosts.${index}.category`)}
+                placeholder="Category"
+                className="w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm"
+              />
+              <input
+                type="number"
+                {...register(`rehab.hardCosts.${index}.amount`, { valueAsNumber: true })}
+                placeholder="Amount"
+                className="w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm"
+              />
+              <button
+                type="button"
+                onClick={() => removeHardCost(index)}
+                className="p-2 rounded-md hover:bg-red-100"
+                aria-label="Remove Hard Cost"
+              >
+                <Trash2 className="w-5 h-5 text-red-600" />
+              </button>
+            </div>
+          ))}
+          <button
+            type="button"
+            onClick={() => appendHardCost({ category: '', amount: 0 })}
+            className="text-rose-600 hover:text-rose-800 font-semibold"
+          >
+            + Add Hard Cost
+          </button>
+        </div>
+      )}
+
+      {activeRehabTab === 'softCosts' && (
+        <div className="space-y-4 pt-4">
+          {softCostFields.map((field, index) => (
+            <div key={field.id} className="flex items-center gap-4">
+              <input
+                {...register(`rehab.softCosts.${index}.category`)}
+                placeholder="Category"
+                className="w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm"
+              />
+              <input
+                type="number"
+                {...register(`rehab.softCosts.${index}.amount`, { valueAsNumber: true })}
+                placeholder="Amount"
+                className="w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm"
+              />
+              <button
+                type="button"
+                onClick={() => removeSoftCost(index)}
+                className="p-2 rounded-md hover:bg-red-100"
+                aria-label="Remove Soft Cost"
+              >
+                <Trash2 className="w-5 h-5 text-red-600" />
+              </button>
+            </div>
+          ))}
+          <button
+            type="button"
+            onClick={() => appendSoftCost({ category: '', amount: 0 })}
+            className="text-rose-600 hover:text-rose-800 font-semibold"
+          >
+            + Add Soft Cost
+          </button>
+        </div>
+      )}
+
+      <hr className="my-6" />
+
+      <h3 className="text-lg font-medium text-slate-800">Lost Revenue/Costs Incurred During Rehab</h3>
+      {lostRevenueFields.map((field, index) => (
+        <div key={field.id} className="flex items-center gap-4">
+          <input
+            {...register(`rehab.lostRevenueAndCosts.${index}.category`)}
+            placeholder="e.g., Lost Revenue, Utilities"
+            className="w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm"
+          />
+          <input
+            type="number"
+            {...register(`rehab.lostRevenueAndCosts.${index}.amount`, { valueAsNumber: true })}
+            placeholder="Amount"
+            className="w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm"
+          />
+          <button
+            type="button"
+            onClick={() => removeLostRevenue(index)}
+            className="p-2 rounded-md hover:bg-red-100"
+            aria-label="Remove Cost"
+          >
+            <Trash2 className="w-5 h-5 text-red-600" />
+          </button>
+        </div>
+      ))}
+      <button
+        type="button"
+        onClick={() => appendLostRevenue({ category: '', amount: 0 })}
+        className="text-rose-600 hover:text-rose-800 font-semibold"
+      >
+        + Add Cost/Lost Revenue
+      </button>
+    </>
+  );
+}

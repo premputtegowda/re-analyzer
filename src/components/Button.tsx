@@ -1,25 +1,25 @@
 import React from 'react';
 
-// Define the "blueprint" for our component's props
-type ButtonProps = {
-  onClick?: () => void;
-  children: React.ReactNode;
+interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: 'primary' | 'secondary';
-  className?: string;
-  type?: 'button' | 'submit' | 'reset'; // 👈 Add type property here
 }
 
-export default function Button({ onClick, children, variant = 'primary', className='', type = 'button' }: ButtonProps) {
-  const baseClasses = "w-full py-3 px-4 font-bold rounded-lg flex items-center justify-center space-x-2 focus:outline-none focus:ring-2 focus:ring-offset-2 transition-colors duration-300";
-
-  // Airbnb-style color variants
-  const variants = {
-    primary: 'bg-rose-500 text-white hover:bg-rose-600 focus:ring-rose-500',
-    secondary: 'bg-slate-200 text-slate-700 hover:bg-slate-300 focus:ring-slate-500',
+export default function Button({ variant = 'primary', className, children, disabled, ...props }: ButtonProps) {
+  const baseClasses = "w-full rounded-md font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2";
+  
+  const variantClasses = {
+    primary: "bg-rose-500 text-white hover:bg-rose-600 focus:ring-rose-500",
+    secondary: "bg-slate-200 text-slate-800 hover:bg-slate-300 focus:ring-slate-500",
   };
 
+  const disabledClasses = "disabled:opacity-50 disabled:cursor-not-allowed";
+
   return (
-     <button type={type} onClick={onClick} className={`${baseClasses} ${variants[variant]} ${className}`}>
+    <button
+      className={`${baseClasses} ${variantClasses[variant]} ${disabledClasses} ${className}`}
+      disabled={disabled}
+      {...props}
+    >
       {children}
     </button>
   );

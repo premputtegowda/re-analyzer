@@ -11,11 +11,10 @@ export default function DashboardPage({ user, handleLogout }: DashboardProps) {
   const navigate = useNavigate();
 
   return (
-    // 👇 The MainLayout now handles the background and min-height
     <main className="max-w-5xl mx-auto px-4 py-8">
       <div className="flex flex-col sm:flex-row items-center justify-between mb-8 gap-2">
         <h1 className="text-3xl font-bold text-slate-800 mb-2 sm:mb-0">Your Deals</h1>
-        <Button onClick={() => navigate('/add-property')} className="w-full sm:w-64">
+        <Button onClick={() => navigate('/add-property')} className="w-full sm:w-1/4">
           <span>+ Add a Property</span>
         </Button>
       </div>

@@ -1,25 +1,40 @@
 import React from 'react';
-import { Link } from 'react-router-dom';
+import { Link, NavLink } from 'react-router-dom';
 
 type HeaderProps = {
   handleLogout: () => void;
 };
 
 export default function Header({ handleLogout }: HeaderProps) {
+  const activeLinkStyle = {
+    textDecoration: 'underline',
+    color: '#F43F5E', // This is the Tailwind rose-500 color
+  };
+
   return (
     <header className="bg-white shadow-sm">
-      <nav className="max-w-5xl mx-auto px-4 py-3 flex flex-col sm:flex-row justify-between items-center gap-2">
-        <Link to="/dashboard" className="text-rose-500 font-bold text-xl mb-2 sm:mb-0">REDA</Link>
-        <div className="flex items-center space-x-0 sm:space-x-4 w-full sm:w-auto justify-end">
+      <nav className="max-w-5xl mx-auto px-4 py-3 flex justify-between items-center">
+        <Link to="/dashboard" className="text-rose-500 font-bold text-xl">REDA</Link>
+        <div className="flex items-center space-x-6">
+          <NavLink 
+            to="/dashboard" 
+            className="text-lg text-slate-700 hover:text-rose-500 transition-colors hidden sm:inline"
+            style={({ isActive }) => isActive ? activeLinkStyle : undefined}
+          >
+            Dashboard
+          </NavLink>
+          <NavLink 
+            to="/favorites" 
+            className="text-lg text-slate-700 hover:text-rose-500 transition-colors hidden sm:inline"
+            style={({ isActive }) => isActive ? activeLinkStyle : undefined}
+          >
+            Favorites
+          </NavLink>
           <button
             type="button"
             onClick={handleLogout}
-            className="flex items-center gap-2 font-normal text-lg bg-transparent border-none shadow-none p-0 hover:bg-gray-100 focus:outline-none focus:underline cursor-pointer"
+            className="text-lg text-slate-700 hover:text-rose-500 transition-colors"
           >
-            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="currentColor" className="inline-block">
-              <rect x="5" y="3" width="14" height="18" rx="2" strokeWidth="2" stroke="currentColor" fill="none"/>
-              <circle cx="8" cy="12" r="1" fill="currentColor" />
-            </svg>
             Log out
           </button>
         </div>
