@@ -1,9 +1,9 @@
-import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { useForm, FormProvider } from 'react-hook-form';
-import { PropertyData } from '../types/property';
+import { PropertyData, PropertySummary } from '../types/property';
 import Button from '../components/Button';
-import { Home, Banknote, Wrench, Landmark, Receipt, ArrowLeft, ArrowRight, ClipboardList, LayoutDashboard, LucideProps } from 'lucide-react';
+import { Home, Banknote, Wrench, Landmark, Receipt, ArrowLeft, ArrowRight, ClipboardList, LayoutDashboard, LucideProps, Save, X } from 'lucide-react';
 import PropertyInfoStep from '../components/form-steps/PropertyInfoStep';
 import FinancingStep from '../components/form-steps/FinancingStep';
 import IncomeStep from '../components/form-steps/IncomeStep';
@@ -11,19 +11,23 @@ import ExpensesStep from '../components/form-steps/ExpensesStep';
 import RehabStep from '../components/form-steps/RehabStep';
 import SummaryStep from '../components/form-steps/SummaryStep';
 
-// Define a type for our step objects
+type AddPropertyPageProps = {
+  existingPropertyData?: PropertySummary;
+};
+
 type Step = {
   id: number;
   name: string;
   Icon: React.ForwardRefExoticComponent<Omit<LucideProps, "ref"> & React.RefAttributes<SVGSVGElement>>;
-  path?: string; // Path is now optional
+  path?: string;
 };
 
-export default function AddPropertyPage() {
+export default function AddPropertyPage({ existingPropertyData }: AddPropertyPageProps) {
   const [step, setStep] = useState(1);
+  const navigate = useNavigate();
   const methods = useForm<PropertyData>({
     mode: 'onChange',
-    defaultValues: {
+    defaultValues: existingPropertyData || {
       address: '',
       purchasePrice: 0,
       propertyType: 'Single Family Home',
@@ -33,13 +37,15 @@ export default function AddPropertyPage() {
         downPayment: 25,
         downPaymentType: 'percentage',
         interestRate: 0,
+        loanTerm: 30,
         closingCosts: 0,
         points: 0,
         otherCosts: 0,
       },
       expenses: {
-        propertyTaxes: 0,
-        propertyInsurance: 0,
+        annualPropertyTaxes: 0,
+        annualPropertyInsurance: 0,
+        hoa: 0,
         water: 0,
         gas: 0,
         electricity: 0,
@@ -47,7 +53,7 @@ export default function AddPropertyPage() {
         internet: 0,
         security: 0,
         administrativeManagement: 0,
-        repairsMaintenance: 0,
+        repairsMaintenancePercentage: 0,
         propertyManagementPercentage: 0,
         leasingFee: 0,
         averageLengthOfStay: 0,
@@ -62,6 +68,14 @@ export default function AddPropertyPage() {
       },
     },
   });
+
+  const { reset } = methods;
+
+  useEffect(() => {
+    if (existingPropertyData) {
+      reset(existingPropertyData);
+    }
+  }, [existingPropertyData, reset]);
 
   const onSubmit = (data: PropertyData) => {
     alert(JSON.stringify(data, null, 2));
@@ -133,13 +147,15 @@ export default function AddPropertyPage() {
 
   return (
     <main className="max-w-4xl mx-auto px-4 py-8 pb-48">
-      <div className="mb-4">
-        <Link to="/dashboard" className="text-slate-600 hover:text-rose-500 font-semibold">
-          &larr; Back to Dashboard
-        </Link>
-      </div>
-
-      <div className="bg-white rounded-lg shadow-md p-6">
+      <div className="bg-white rounded-lg shadow-md p-6 relative">
+        <button
+            onClick={() => navigate('/dashboard')}
+            className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 transition-colors z-10"
+            aria-label="Close form"
+          >
+            <X className="w-6 h-6" />
+        </button>
+        
         <StepperNavigation />
 
         <FormProvider {...methods}>
@@ -157,7 +173,7 @@ export default function AddPropertyPage() {
       <footer className="fixed bottom-0 left-0 right-0 bg-white border-t z-20">
         <div className="max-w-4xl mx-auto px-4">
           <div className="flex justify-between items-center py-4">
-              <div className="w-1/3 flex justify-start">
+              <div className="flex items-center gap-x-4">
                   <Button 
                     onClick={() => setStep(step - 1)} 
                     variant="secondary" 
@@ -167,19 +183,6 @@ export default function AddPropertyPage() {
                     <ArrowLeft className="w-5 h-5" />
                     <span>Previous</span>
                   </Button>
-              </div>
-
-              <div className="w-1/3 flex justify-center">
-                  <button 
-                    type="submit" 
-                    form="property-form" 
-                    className={`font-bold py-2 px-6 rounded-lg transition-colors bg-rose-500 text-white hover:bg-rose-600`}
-                  >
-                     Save
-                  </button>
-              </div>
-              
-              <div className="w-1/3 flex justify-end">
                   <Button 
                     type="button" 
                     onClick={() => setStep(step + 1)} 
@@ -189,6 +192,25 @@ export default function AddPropertyPage() {
                     <span>Next</span>
                     <ArrowRight className="w-5 h-5" />
                   </Button>
+              </div>
+
+              <div className="flex items-center gap-x-4">
+                  <Button 
+                    onClick={() => navigate('/dashboard')} 
+                    variant="secondary" 
+                    className="w-auto px-4 py-2 flex items-center justify-center gap-2"
+                  >
+                    <X className="w-5 h-5" />
+                    <span>Cancel</span>
+                  </Button>
+                  <button 
+                    type="submit" 
+                    form="property-form" 
+                    className={`font-bold py-2 px-6 rounded-lg transition-colors bg-rose-500 text-white hover:bg-rose-600 flex items-center gap-2`}
+                  >
+                     <Save className="w-5 h-5" />
+                     <span>Save</span>
+                  </button>
               </div>
           </div>
           <div className="sm:hidden border-t">

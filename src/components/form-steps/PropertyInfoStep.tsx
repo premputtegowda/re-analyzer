@@ -7,7 +7,7 @@ import { Trash2 } from 'lucide-react';
 const initialUnitState: Unit = { beds: 1, baths: 1, sqft: 0, numberOfUnits: 1, monthlyRent: 0 };
 
 export default function PropertyInfoStep() {
-  const { register, control, watch, setValue } = useFormContext<PropertyData>();
+  const { register, control, watch, setValue, formState: { errors } } = useFormContext<PropertyData>();
   
   const { fields, append, remove, replace } = useFieldArray({
     control,
@@ -45,17 +45,31 @@ export default function PropertyInfoStep() {
         />
       </div>
 
-      <div>
-        <label htmlFor="purchasePrice" className="block text-sm font-medium text-slate-700 mb-1">
-          Purchase Price
-        </label>
-        <input
-          type="number"
-          id="purchasePrice"
-          {...register('purchasePrice', { valueAsNumber: true })}
-          className="w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm"
-          placeholder="300000"
-        />
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div>
+          <label htmlFor="purchasePrice" className="block text-sm font-medium text-slate-700 mb-1">
+            Purchase Price
+          </label>
+          <input
+            type="number"
+            id="purchasePrice"
+            {...register('purchasePrice', { valueAsNumber: true })}
+            className="w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm"
+            placeholder="300000"
+          />
+        </div>
+        <div>
+          <label htmlFor="projectedHoldPeriod" className="block text-sm font-medium text-slate-700 mb-1">
+            Projected Hold Period (Years)
+          </label>
+          <input
+            type="number"
+            id="projectedHoldPeriod"
+            {...register('projectedHoldPeriod', { valueAsNumber: true })}
+            className="w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm"
+            placeholder="5"
+          />
+        </div>
       </div>
 
       <Controller
@@ -74,30 +88,30 @@ export default function PropertyInfoStep() {
       <h3 className="text-lg font-medium text-slate-800">Unit Details</h3>
       
       {fields.map((item, index) => (
-        <div key={item.id} className="p-4 border rounded-md space-y-4">
-          <div className="flex flex-wrap items-center gap-4">
-            <div className="flex-1 min-w-[100px]">
+        <div key={item.id} className="p-4 border rounded-md">
+          <div className="flex flex-wrap items-end gap-4">
+            <div className="flex-1 min-w-[80px]">
               <label htmlFor={`units.${index}.beds`} className="block text-sm font-medium text-slate-600">Beds</label>
               <input {...register(`units.${index}.beds`, { valueAsNumber: true })} id={`units.${index}.beds`} className="w-full mt-1 p-2 border rounded-md" />
             </div>
-            <div className="flex-1 min-w-[100px]">
+            <div className="flex-1 min-w-[80px]">
               <label htmlFor={`units.${index}.baths`} className="block text-sm font-medium text-slate-600">Baths</label>
               <input {...register(`units.${index}.baths`, { valueAsNumber: true })} id={`units.${index}.baths`} className="w-full mt-1 p-2 border rounded-md" />
             </div>
-            <div className="flex-1 min-w-[100px]">
+            <div className="flex-1 min-w-[80px]">
               <label htmlFor={`units.${index}.sqft`} className="block text-sm font-medium text-slate-600">Sqft</label>
               <input {...register(`units.${index}.sqft`, { valueAsNumber: true })} id={`units.${index}.sqft`} className="w-full mt-1 p-2 border rounded-md" />
             </div>
             
             {propertyType === 'MultiFamily' && (
-              <div className="flex-1 min-w-[100px]">
+              <div className="flex-1 min-w-[80px]">
                 <label htmlFor={`units.${index}.numberOfUnits`} className="block text-sm font-medium text-slate-600"># of Units</label>
                 <input {...register(`units.${index}.numberOfUnits`, { valueAsNumber: true })} id={`units.${index}.numberOfUnits`} className="w-full mt-1 p-2 border rounded-md" />
               </div>
             )}
             
             {propertyType === 'MultiFamily' && fields.length > 1 && 
-              <div className="pt-5">
+              <div>
                 <button
                   type="button"
                   onClick={() => remove(index)}
@@ -113,7 +127,7 @@ export default function PropertyInfoStep() {
       ))}
 
       {propertyType === 'MultiFamily' && (
-        <button type="button" onClick={() => append({ ...initialUnitState })} className="text-rose-600 hover:text-rose-800 font-semibold">
+        <button type="button" onClick={() => append({ ...initialUnitState })} className="text-rose-600 hover:text-rose-800 font-semibold mt-4">
           + Add Another Unit Type
         </button>
       )}

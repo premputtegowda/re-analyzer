@@ -6,6 +6,8 @@ import AddPropertyPage from './pages/AddPropertyPage';
 import MainLayout from './components/MainLayout'; 
 import FavoritesPage from './pages/FavoritesPage';
 import DashboardLayout from './components/DashboardLayout';
+import PropertyDetailPage from './pages/PropertyDetailPage';
+import EditPropertyPage from './pages/EditPropertyPage'; // Import the new edit page
 import './App.css';
 
 type User = { name: string; email: string };
@@ -35,6 +37,8 @@ function App() {
       <Route path="/" element={!user ? <LoginPage handleLogin={handleLogin} /> : <Navigate to="/dashboard" />} />
       <Route path="/dashboard" element={user ? <DashboardLayout handleLogout={handleLogout}><DashboardPage user={user} handleLogout={handleLogout} /></DashboardLayout> : <Navigate to="/" />} />
       <Route path="/add-property" element={user ? <MainLayout handleLogout={handleLogout}><AddPropertyPage /></MainLayout> : <Navigate to="/" />} />
+      <Route path="/property/:propertyId" element={user ? <MainLayout handleLogout={handleLogout}><PropertyDetailPage /></MainLayout> : <Navigate to="/" />} />
+      <Route path="/property/:propertyId/edit" element={user ? <MainLayout handleLogout={handleLogout}><EditPropertyPage /></MainLayout> : <Navigate to="/" />} />
       <Route path="/favorites" element={user ? <DashboardLayout handleLogout={handleLogout}><FavoritesPage /></DashboardLayout> : <Navigate to="/" />} />
     </Routes>
   );

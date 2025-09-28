@@ -5,7 +5,7 @@ import { Trash2 } from 'lucide-react';
 
 export default function RehabStep() {
   const [activeRehabTab, setActiveRehabTab] = useState<'hardCosts' | 'softCosts'>('hardCosts');
-  const { register } = useFormContext<PropertyData>();
+  const { register, watch } = useFormContext<PropertyData>();
 
   const { fields: hardCostFields, append: appendHardCost, remove: removeHardCost } = useFieldArray({
     name: "rehab.hardCosts",
@@ -18,6 +18,20 @@ export default function RehabStep() {
   const { fields: lostRevenueFields, append: appendLostRevenue, remove: removeLostRevenue } = useFieldArray({
     name: "rehab.lostRevenueAndCosts",
   });
+
+  const rehabData = watch('rehab');
+
+  const calculateTotalHardCosts = () => {
+    return rehabData?.hardCosts?.reduce((acc, item) => acc + (item.amount || 0), 0) || 0;
+  };
+
+  const calculateTotalSoftCosts = () => {
+    return rehabData?.softCosts?.reduce((acc, item) => acc + (item.amount || 0), 0) || 0;
+  };
+
+  const calculateTotalRehabCosts = () => {
+    return calculateTotalHardCosts() + calculateTotalSoftCosts();
+  };
 
   return (
     <>
@@ -112,6 +126,21 @@ export default function RehabStep() {
           </button>
         </div>
       )}
+
+      <div className="mt-6 pt-4 border-t-2 space-y-2">
+        <div className="flex justify-between items-center">
+          <p className="text-sm font-medium text-slate-700">Total Hard Costs:</p>
+          <p className="text-lg font-semibold text-slate-800">${calculateTotalHardCosts().toLocaleString()}</p>
+        </div>
+        <div className="flex justify-between items-center">
+          <p className="text-sm font-medium text-slate-700">Total Soft Costs:</p>
+          <p className="text-lg font-semibold text-slate-800">${calculateTotalSoftCosts().toLocaleString()}</p>
+        </div>
+        <div className="flex justify-between items-center pt-2 border-t">
+          <p className="text-base font-bold text-slate-800">Total Development/Rehab Costs:</p>
+          <p className="text-xl font-bold text-slate-900">${calculateTotalRehabCosts().toLocaleString()}</p>
+        </div>
+      </div>
 
       <hr className="my-6" />
 

@@ -20,6 +20,7 @@ export interface FinanceData {
   downPayment: number;
   downPaymentType: DownPaymentType;
   interestRate: number;
+  loanTerm: number;
   closingCosts: number;
   points: number;
   otherCosts: number;
@@ -36,8 +37,9 @@ export interface OneTimeExpense {
 }
 
 export interface ExpenseData {
-  propertyTaxes: number;
-  propertyInsurance: number;
+  annualPropertyTaxes: number;
+  annualPropertyInsurance: number;
+  hoa: number;
   water: number;
   gas: number;
   electricity: number;
@@ -45,7 +47,7 @@ export interface ExpenseData {
   internet: number;
   security: number;
   administrativeManagement: number;
-  repairsMaintenance: number;
+  repairsMaintenancePercentage: number;
   propertyManagementPercentage: number;
   leasingFee: number;
   averageLengthOfStay: number;
@@ -69,9 +71,16 @@ export interface PropertyData {
   address: string;
   purchasePrice: number;
   propertyType: PropertyType;
+  projectedHoldPeriod: number; // Added this line
   units: Unit[];
   otherIncome: OtherIncomeItem[];
   finance: FinanceData;
   expenses: ExpenseData;
   rehab: RehabData;
+}
+
+export interface PropertySummary extends PropertyData {
+  id: string;
+  nickname: string;
+  imageUrl: string;
 }

@@ -20,6 +20,23 @@ export default function IncomeStep() {
 
   const propertyType = watch('propertyType');
   const units = watch('units');
+  const otherIncome = watch('otherIncome');
+
+  const calculateTotalUnitRent = () => {
+    return units.reduce((acc, unit) => {
+      const rent = unit.monthlyRent || 0;
+      const numberOfUnits = unit.numberOfUnits || 1;
+      return acc + (rent * numberOfUnits);
+    }, 0);
+  };
+
+  const calculateTotalOtherIncome = () => {
+    return otherIncome.reduce((acc, item) => acc + (item.amount || 0), 0);
+  };
+
+  const calculateTotalMonthlyIncome = () => {
+    return calculateTotalUnitRent() + calculateTotalOtherIncome();
+  };
 
   return (
     <>
@@ -76,7 +93,7 @@ export default function IncomeStep() {
                   </div>
                 </div>
                 <div>
-                    <label htmlFor={`units.${index}.monthlyRent`} className="block text-sm font-medium text-slate-700 text-right">Monthly Rent</label>
+                    <label htmlFor={`units.${index}.monthlyRent`} className="block text-sm font-medium text-slate-700 text-right">Monthly Rent/Unit</label>
                     <div className="relative mt-1">
                         <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
                             <span className="text-gray-500 sm:text-sm">$</span>
@@ -94,13 +111,17 @@ export default function IncomeStep() {
             )}
           </div>
         ))}
+        <div className="pt-2 text-right">
+            <p className="text-sm font-medium text-slate-700">Total Monthly Rent:</p>
+            <p className="text-lg font-semibold text-slate-800">${calculateTotalUnitRent().toLocaleString()}</p>
+        </div>
       </div>
 
       <hr className="my-6" />
 
-      <h3 className="text-lg font-medium text-slate-800">Other Income</h3>
+      <h3 className="text-lg font-medium text-slate-800">Other Monthly Income</h3>
       {otherIncomeFields.map((field, index) => (
-        <div key={field.id} className="flex items-center gap-4">
+        <div key={field.id} className="flex items-center gap-4 mb-4">
           <input
             {...register(`otherIncome.${index}.category`)}
             placeholder="e.g., Garage, Storage"
@@ -127,8 +148,17 @@ export default function IncomeStep() {
         onClick={() => appendOtherIncome({ category: '', amount: 0 })}
         className="text-rose-600 hover:text-rose-800 font-semibold"
       >
-        + Add Other Income
+        + Add Other Monthly Income
       </button>
+      <div className="pt-2 text-right">
+          <p className="text-sm font-medium text-slate-700">Total Other Monthly Income:</p>
+          <p className="text-lg font-semibold text-slate-800">${calculateTotalOtherIncome().toLocaleString()}</p>
+      </div>
+      
+      <div className="mt-6 pt-4 border-t-2 text-right">
+        <p className="text-sm font-medium text-slate-700">Total Monthly Income:</p>
+        <p className="text-2xl font-bold text-slate-800">${calculateTotalMonthlyIncome().toLocaleString()}</p>
+      </div>
     </>
   );
 }
