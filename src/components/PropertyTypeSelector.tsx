@@ -11,7 +11,7 @@ const propertyOptions = [
 ];
 
 type PropertyTypeSelectorProps = {
-  value: PropertyType;
+  value?: PropertyType;
   onChange: (value: PropertyType) => void;
 };
 
@@ -19,7 +19,7 @@ export default function PropertyTypeSelector({ value, onChange }: PropertyTypeSe
   return (
     <div>
       <label className="block text-sm font-medium text-slate-700 mb-2">
-        Property Type *
+        Property Type
       </label>
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         {propertyOptions.map((option) => {

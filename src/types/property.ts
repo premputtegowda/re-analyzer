@@ -50,7 +50,6 @@ export interface ExpenseData {
   repairsMaintenancePercentage: number;
   propertyManagementPercentage: number;
   leasingFee: number;
-  averageLengthOfStay: number;
   replacementReserves: number;
   customExpenses: CustomExpense[];
   oneTimeExpenses: OneTimeExpense[];
@@ -70,8 +69,12 @@ export interface RehabData {
 export interface PropertyData {
   address: string;
   purchasePrice: number;
-  propertyType: PropertyType;
-  projectedHoldPeriod: number; // Added this line
+  propertyType?: PropertyType;
+  projectedRentGrowth?: number;
+  holdPeriod?: number;
+  averageLeaseLength?: number;
+  expenseGrowthRate?: number;
+  appreciationRate?: number;
   units: Unit[];
   otherIncome: OtherIncomeItem[];
   finance: FinanceData;

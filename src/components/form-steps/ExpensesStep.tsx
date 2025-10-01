@@ -4,7 +4,7 @@ import { PropertyData } from '../../types/property';
 import { Trash2 } from 'lucide-react';
 
 export default function ExpensesStep() {
-  const { register, watch } = useFormContext<PropertyData>();
+  const { register, watch, formState: { errors } } = useFormContext<PropertyData>();
 
   const { fields: customExpenseFields, append: appendCustomExpense, remove: removeCustomExpense } = useFieldArray({
     name: "expenses.customExpenses",
@@ -74,12 +74,44 @@ export default function ExpensesStep() {
       
       <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
         <div>
-          <label htmlFor="expenses.annualPropertyTaxes" className="block text-sm font-medium text-slate-700 mb-1">Annual Property Tax</label>
-          <input type="number" id="expenses.annualPropertyTaxes" {...register('expenses.annualPropertyTaxes', { valueAsNumber: true })} className="w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm" />
+          <label htmlFor="expenses.annualPropertyTaxes" className="block text-sm font-medium text-slate-700 mb-1">
+            Annual Property Tax <span className="text-red-500">*</span>
+          </label>
+          <input 
+            type="number" 
+            id="expenses.annualPropertyTaxes" 
+            {...register('expenses.annualPropertyTaxes', { 
+              required: 'Annual Property Tax is required',
+              valueAsNumber: true,
+              min: { value: 0, message: 'Property tax cannot be negative' }
+            })} 
+            className={`w-full px-3 py-2 border rounded-md shadow-sm ${
+              errors.expenses?.annualPropertyTaxes ? 'border-red-500' : 'border-slate-300'
+            }`}
+          />
+          {errors.expenses?.annualPropertyTaxes && (
+            <p className="mt-1 text-sm text-red-600">{errors.expenses.annualPropertyTaxes.message}</p>
+          )}
         </div>
         <div>
-          <label htmlFor="expenses.annualPropertyInsurance" className="block text-sm font-medium text-slate-700 mb-1">Annual Property Insurance</label>
-          <input type="number" id="expenses.annualPropertyInsurance" {...register('expenses.annualPropertyInsurance', { valueAsNumber: true })} className="w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm" />
+          <label htmlFor="expenses.annualPropertyInsurance" className="block text-sm font-medium text-slate-700 mb-1">
+            Annual Property Insurance <span className="text-red-500">*</span>
+          </label>
+          <input 
+            type="number" 
+            id="expenses.annualPropertyInsurance" 
+            {...register('expenses.annualPropertyInsurance', { 
+              required: 'Annual Property Insurance is required',
+              valueAsNumber: true,
+              min: { value: 0, message: 'Property insurance cannot be negative' }
+            })} 
+            className={`w-full px-3 py-2 border rounded-md shadow-sm ${
+              errors.expenses?.annualPropertyInsurance ? 'border-red-500' : 'border-slate-300'
+            }`}
+          />
+          {errors.expenses?.annualPropertyInsurance && (
+            <p className="mt-1 text-sm text-red-600">{errors.expenses.annualPropertyInsurance.message}</p>
+          )}
         </div>
         <div>
           <label htmlFor="expenses.hoa" className="block text-sm font-medium text-slate-700 mb-1">HOA</label>
@@ -132,12 +164,16 @@ export default function ExpensesStep() {
           <input type="number" id="expenses.leasingFee" {...register('expenses.leasingFee', { valueAsNumber: true })} className="w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm" />
         </div>
         <div>
-          <label htmlFor="expenses.averageLengthOfStay" className="block text-sm font-medium text-slate-700 mb-1">Average Length of Stay (in yrs)</label>
-          <input type="number" id="expenses.averageLengthOfStay" {...register('expenses.averageLengthOfStay', { valueAsNumber: true })} className="w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm" />
-        </div>
-        <div>
-          <label htmlFor="expenses.replacementReserves" className="block text-sm font-medium text-slate-700 mb-1">Replacement Reserves</label>
-          <input type="number" id="expenses.replacementReserves" {...register('expenses.replacementReserves', { valueAsNumber: true })} className="w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm" />
+          <label htmlFor="expenses.replacementReserves" className="block text-sm font-medium text-slate-700 mb-1">Replacement Reserves (%)</label>
+          <input 
+            type="number" 
+            id="expenses.replacementReserves" 
+            {...register('expenses.replacementReserves', { valueAsNumber: true })} 
+            step="0.1"
+            min="0"
+            max="100"
+            className="w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm" 
+          />
         </div>
       </div>
 

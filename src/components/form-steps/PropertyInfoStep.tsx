@@ -34,47 +34,52 @@ export default function PropertyInfoStep() {
       
       <div>
         <label htmlFor="address" className="block text-sm font-medium text-slate-700 mb-1">
-          Street Address
+          Street Address <span className="text-red-500">*</span>
         </label>
         <input
           type="text"
           id="address"
-          {...register('address', { required: true })}
-          className="w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm"
+          {...register('address', { 
+            required: 'Street address is required' 
+          })}
+          className={`w-full px-3 py-2 border rounded-md shadow-sm ${
+            errors.address ? 'border-red-500 focus:border-red-500' : 'border-slate-300'
+          }`}
           placeholder="123 Main St"
         />
+        {errors.address && (
+          <p className="mt-1 text-sm text-red-600">{errors.address.message}</p>
+        )}
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
           <label htmlFor="purchasePrice" className="block text-sm font-medium text-slate-700 mb-1">
-            Purchase Price
+            Purchase Price <span className="text-red-500">*</span>
           </label>
           <input
             type="number"
             id="purchasePrice"
-            {...register('purchasePrice', { valueAsNumber: true })}
-            className="w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm"
+            {...register('purchasePrice', { 
+              required: 'Purchase price is required',
+              valueAsNumber: true,
+              min: { value: 1, message: 'Purchase price must be greater than 0' }
+            })}
+            className={`w-full px-3 py-2 border rounded-md shadow-sm ${
+              errors.purchasePrice ? 'border-red-500 focus:border-red-500' : 'border-slate-300'
+            }`}
             placeholder="300000"
           />
-        </div>
-        <div>
-          <label htmlFor="projectedHoldPeriod" className="block text-sm font-medium text-slate-700 mb-1">
-            Projected Hold Period (Years)
-          </label>
-          <input
-            type="number"
-            id="projectedHoldPeriod"
-            {...register('projectedHoldPeriod', { valueAsNumber: true })}
-            className="w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm"
-            placeholder="5"
-          />
+          {errors.purchasePrice && (
+            <p className="mt-1 text-sm text-red-600">{errors.purchasePrice.message}</p>
+          )}
         </div>
       </div>
 
       <Controller
         name="propertyType"
         control={control}
+        defaultValue="MultiFamily"
         render={({ field }) => (
           <PropertyTypeSelector 
             value={field.value} 
@@ -88,30 +93,32 @@ export default function PropertyInfoStep() {
       <h3 className="text-lg font-medium text-slate-800">Unit Details</h3>
       
       {fields.map((item, index) => (
-        <div key={item.id} className="p-4 border rounded-md">
-          <div className="flex flex-wrap items-end gap-4">
-            <div className="flex-1 min-w-[80px]">
-              <label htmlFor={`units.${index}.beds`} className="block text-sm font-medium text-slate-600">Beds</label>
-              <input {...register(`units.${index}.beds`, { valueAsNumber: true })} id={`units.${index}.beds`} className="w-full mt-1 p-2 border rounded-md" />
+        <div key={item.id} className="p-3 sm:p-4 border rounded-md">
+          <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-end gap-3 sm:gap-4">
+            <div className="flex gap-2 items-end">
+              <div className="w-16 sm:min-w-[60px]">
+                <label htmlFor={`units.${index}.beds`} className="block text-xs font-medium text-slate-600">Beds</label>
+                <input {...register(`units.${index}.beds`, { valueAsNumber: true })} id={`units.${index}.beds`} className="w-full mt-1 p-2 border rounded-md text-sm" />
+              </div>
+              <div className="w-16 sm:min-w-[60px]">
+                <label htmlFor={`units.${index}.baths`} className="block text-xs font-medium text-slate-600">Baths</label>
+                <input {...register(`units.${index}.baths`, { valueAsNumber: true })} id={`units.${index}.baths`} className="w-full mt-1 p-2 border rounded-md text-sm" />
+              </div>
             </div>
             <div className="flex-1 min-w-[80px]">
-              <label htmlFor={`units.${index}.baths`} className="block text-sm font-medium text-slate-600">Baths</label>
-              <input {...register(`units.${index}.baths`, { valueAsNumber: true })} id={`units.${index}.baths`} className="w-full mt-1 p-2 border rounded-md" />
-            </div>
-            <div className="flex-1 min-w-[80px]">
-              <label htmlFor={`units.${index}.sqft`} className="block text-sm font-medium text-slate-600">Sqft</label>
-              <input {...register(`units.${index}.sqft`, { valueAsNumber: true })} id={`units.${index}.sqft`} className="w-full mt-1 p-2 border rounded-md" />
+              <label htmlFor={`units.${index}.sqft`} className="block text-xs font-medium text-slate-600">Sqft</label>
+              <input {...register(`units.${index}.sqft`, { valueAsNumber: true })} id={`units.${index}.sqft`} className="w-full mt-1 p-2 border rounded-md text-sm" />
             </div>
             
             {propertyType === 'MultiFamily' && (
               <div className="flex-1 min-w-[80px]">
-                <label htmlFor={`units.${index}.numberOfUnits`} className="block text-sm font-medium text-slate-600"># of Units</label>
-                <input {...register(`units.${index}.numberOfUnits`, { valueAsNumber: true })} id={`units.${index}.numberOfUnits`} className="w-full mt-1 p-2 border rounded-md" />
+                <label htmlFor={`units.${index}.numberOfUnits`} className="block text-xs font-medium text-slate-600"># of Units</label>
+                <input {...register(`units.${index}.numberOfUnits`, { valueAsNumber: true })} id={`units.${index}.numberOfUnits`} className="w-full mt-1 p-2 border rounded-md text-sm" />
               </div>
             )}
             
             {propertyType === 'MultiFamily' && fields.length > 1 && 
-              <div>
+              <div className="flex justify-center sm:justify-start">
                 <button
                   type="button"
                   onClick={() => remove(index)}

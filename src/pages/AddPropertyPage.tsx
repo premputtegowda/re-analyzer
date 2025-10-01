@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useForm, FormProvider } from 'react-hook-form';
 import { PropertyData, PropertySummary } from '../types/property';
 import Button from '../components/Button';
-import { Home, Banknote, Wrench, Landmark, Receipt, ArrowLeft, ArrowRight, ClipboardList, LayoutDashboard, LucideProps, Save, X } from 'lucide-react';
+import { Home, Banknote, Wrench, Landmark, Receipt, ArrowLeft, ArrowRight, ClipboardList, LucideProps, Save, X } from 'lucide-react';
 import PropertyInfoStep from '../components/form-steps/PropertyInfoStep';
 import FinancingStep from '../components/form-steps/FinancingStep';
 import IncomeStep from '../components/form-steps/IncomeStep';
@@ -25,18 +25,30 @@ type Step = {
 export default function AddPropertyPage({ existingPropertyData }: AddPropertyPageProps) {
   const [step, setStep] = useState(1);
   const navigate = useNavigate();
+  
+  // Get stored interest rate from localStorage
+  const getStoredInterestRate = () => {
+    const stored = localStorage.getItem('lastInterestRate');
+    return stored ? parseFloat(stored) : 0;
+  };
+  
   const methods = useForm<PropertyData>({
     mode: 'onChange',
     defaultValues: existingPropertyData || {
       address: '',
       purchasePrice: 0,
-      propertyType: 'Single Family Home',
+      propertyType: 'MultiFamily',
+      projectedRentGrowth: 2,
+      holdPeriod: 5,
+      averageLeaseLength: 12,
+      expenseGrowthRate: 3,
+      appreciationRate: 2,
       units: [{ beds: 1, baths: 1, sqft: 0, monthlyRent: 0 }],
       otherIncome: [],
       finance: {
         downPayment: 25,
         downPaymentType: 'percentage',
-        interestRate: 0,
+        interestRate: getStoredInterestRate(),
         loanTerm: 30,
         closingCosts: 0,
         points: 0,
@@ -56,8 +68,7 @@ export default function AddPropertyPage({ existingPropertyData }: AddPropertyPag
         repairsMaintenancePercentage: 0,
         propertyManagementPercentage: 0,
         leasingFee: 0,
-        averageLengthOfStay: 0,
-        replacementReserves: 0,
+        replacementReserves: 5,
         customExpenses: [],
         oneTimeExpenses: [],
       },
@@ -91,7 +102,6 @@ export default function AddPropertyPage({ existingPropertyData }: AddPropertyPag
   ];
   
   const mobileSteps: Step[] = [
-    { id: 0, name: 'Dashboard', Icon: LayoutDashboard, path: '/dashboard' },
     ...steps,
   ];
 
