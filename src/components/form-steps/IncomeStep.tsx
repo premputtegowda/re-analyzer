@@ -6,7 +6,7 @@ import { Edit, Trash2 } from 'lucide-react';
 
 export default function IncomeStep() {
   const [editingUnitIndex, setEditingUnitIndex] = useState<number | null>(null);
-  const { register, control, watch } = useFormContext<PropertyData>();
+  const { register, control, watch, formState: { errors } } = useFormContext<PropertyData>();
   const { fields: unitFields } = useFieldArray({
     control,
     name: "units",
@@ -30,7 +30,7 @@ export default function IncomeStep() {
   };
 
   const calculateTotalOtherIncome = () => {
-    return otherIncome.reduce((acc, item) => acc + (item.amount || 0), 0);
+    return otherIncome?.reduce((acc, item) => acc + (item.amount || 0), 0) || 0;
   };
 
   const calculateTotalMonthlyIncome = () => {
@@ -99,7 +99,7 @@ export default function IncomeStep() {
                     </div>
                   </div>
                   <div className="mt-4 sm:mt-0">
-                      <label htmlFor={`units.${index}.monthlyRent`} className="block text-sm font-medium text-slate-700 sm:text-right">Monthly Rent/Unit</label>
+                      <label htmlFor={`units.${index}.monthlyRent`} className="block text-sm font-medium text-slate-700 sm:text-right">Monthly Rent/Unit <span className="text-red-500">*</span></label>
                       <div className="relative mt-1">
                           <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
                               <span className="text-gray-500 sm:text-sm">$</span>
@@ -107,11 +107,20 @@ export default function IncomeStep() {
                           <input
                               type="number"
                               id={`units.${index}.monthlyRent`}
-                              {...register(`units.${index}.monthlyRent`, { valueAsNumber: true })}
-                              className="w-full pl-7 pr-2 py-2 border border-slate-300 rounded-md shadow-sm"
+                              {...register(`units.${index}.monthlyRent`, {
+                                valueAsNumber: true,
+                                required: 'Monthly rent is required',
+                                min: { value: 0.01, message: 'Monthly rent must be greater than 0' }
+                              })}
+                              className={`w-full pl-7 pr-2 py-2 border rounded-md shadow-sm ${
+                                errors.units?.[index]?.monthlyRent ? 'border-red-500' : 'border-slate-300'
+                              }`}
                               placeholder="0"
                           />
                       </div>
+                      {errors.units?.[index]?.monthlyRent && (
+                        <p className="mt-1 text-sm text-red-600">{errors.units?.[index]?.monthlyRent?.message}</p>
+                      )}
                   </div>
                 </div>
               </div>
@@ -126,41 +135,78 @@ export default function IncomeStep() {
         
         <hr className="my-6" />
 
-        <h3 className="text-lg font-medium text-slate-800">Other Monthly Income</h3>
-        {otherIncomeFields.map((field, index) => (
-          <div key={field.id} className="flex items-center gap-4 mb-4">
-            <input
-              {...register(`otherIncome.${index}.category`)}
-              placeholder="e.g., Garage, Storage"
-              className="w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm"
-            />
-            <input
-              type="number"
-              {...register(`otherIncome.${index}.amount`, { valueAsNumber: true })}
-              placeholder="Amount"
-              className="w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm"
-            />
+        {otherIncomeFields.length === 0 ? (
+          <div className="text-center py-4">
             <button
               type="button"
-              onClick={() => removeOtherIncome(index)}
-              className="p-2 rounded-md hover:bg-red-100"
-              aria-label="Remove Other Income"
+              onClick={() => appendOtherIncome({ category: '', amount: 0 })}
+              className="text-rose-600 hover:text-rose-800 font-semibold"
             >
-              <Trash2 className="w-5 h-5 text-red-600" />
+              + Add Other Monthly Income
             </button>
           </div>
-        ))}
-        <button
-          type="button"
-          onClick={() => appendOtherIncome({ category: '', amount: 0 })}
-          className="text-rose-600 hover:text-rose-800 font-semibold"
-        >
-          + Add Other Monthly Income
-        </button>
-        <div className="pt-2 text-right">
-            <p className="text-sm font-medium text-slate-700">Total Other Monthly Income:</p>
-            <p className="text-lg font-semibold text-slate-800">${calculateTotalOtherIncome().toLocaleString()}</p>
-        </div>
+        ) : (
+          <>
+            <h3 className="text-lg font-medium text-slate-800">Other Monthly Income</h3>
+            {otherIncomeFields.map((field, index) => (
+              <div key={field.id}>
+                {index > 0 && <hr className="my-4 border-slate-200" />}
+                <div className="flex flex-col sm:flex-row sm:items-center gap-4 mb-4">
+                  <div className="w-full">
+                    <input
+                      {...register(`otherIncome.${index}.category`, {
+                        required: 'Other income category is required'
+                      })}
+                      placeholder="e.g., Garage, Storage"
+                      className={`w-full px-3 py-2 border rounded-md shadow-sm ${
+                        errors.otherIncome?.[index]?.category ? 'border-red-500' : 'border-slate-300'
+                      }`}
+                    />
+                    {errors.otherIncome?.[index]?.category && (
+                      <p className="mt-1 text-sm text-red-600">{errors.otherIncome?.[index]?.category?.message}</p>
+                    )}
+                  </div>
+                  <div className="w-full">
+                    <input
+                      type="number"
+                      {...register(`otherIncome.${index}.amount`, {
+                        valueAsNumber: true,
+                        required: 'Other income amount is required',
+                        min: { value: 0.01, message: 'Amount must be greater than 0' }
+                      })}
+                      placeholder="Amount"
+                      className={`w-full px-3 py-2 border rounded-md shadow-sm ${
+                        errors.otherIncome?.[index]?.amount ? 'border-red-500' : 'border-slate-300'
+                      }`}
+                    />
+                    {errors.otherIncome?.[index]?.amount && (
+                      <p className="mt-1 text-sm text-red-600">{errors.otherIncome?.[index]?.amount?.message}</p>
+                    )}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => removeOtherIncome(index)}
+                    className="p-2 rounded-md hover:bg-red-100 self-start sm:self-center"
+                    aria-label="Remove Other Income"
+                  >
+                    <Trash2 className="w-5 h-5 text-red-600" />
+                  </button>
+                </div>
+              </div>
+            ))}
+            <button
+              type="button"
+              onClick={() => appendOtherIncome({ category: '', amount: 0 })}
+              className="text-rose-600 hover:text-rose-800 font-semibold"
+            >
+              + Add Other Monthly Income
+            </button>
+            <div className="pt-2 text-right">
+                <p className="text-sm font-medium text-slate-700">Total Other Monthly Income:</p>
+                <p className="text-lg font-semibold text-slate-800">${calculateTotalOtherIncome().toLocaleString()}</p>
+            </div>
+          </>
+        )}
         
         <div className="mt-6 pt-4 border-t-2 text-right">
           <p className="text-sm font-medium text-slate-700">Total Monthly Income:</p>

@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import { useFormContext } from 'react-hook-form';
 import { PropertyData } from '../../types/property';
-import { ChevronDown, ChevronUp } from 'lucide-react';
-import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer } from 'recharts';
+import { ChevronDown, ChevronUp, AlertTriangle } from 'lucide-react';
+import { XAxis, YAxis, ResponsiveContainer, LineChart, Line, CartesianGrid, Tooltip, Legend } from 'recharts';
+import { generateChartData } from '../../utils/calculations';
 
 export default function SummaryStep() {
   const { watch, register } = useFormContext<PropertyData>();
@@ -10,7 +11,7 @@ export default function SummaryStep() {
   const [isProjectionsCollapsed, setIsProjectionsCollapsed] = useState<boolean>(false);
   const [isCashFlowCollapsed, setIsCashFlowCollapsed] = useState<boolean>(false);
   const [isInvestmentProjectionsCollapsed, setIsInvestmentProjectionsCollapsed] = useState<boolean>(false);
-  const [activeTab, setActiveTab] = useState<'overview' | 'amortization'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'simulation'>('overview');
   
   const formData = watch();
 
@@ -321,6 +322,19 @@ export default function SummaryStep() {
   const yearlyCashFlows = calculateYearlyCashFlows();
   const averageAnnualCashFlow = calculateAverageCashFlow();
 
+  // Prepare data for cash flow line chart using frontend calculation
+  const holdPeriod = formData.holdPeriod || 5;
+  const frontendChartData = generateChartData(formData, holdPeriod);
+  
+  // Use frontend data if available, otherwise fallback to existing calculation
+  const cashFlowChartData = frontendChartData.length > 0 ? frontendChartData : yearlyCashFlows.map(yearData => ({
+    year: `Year ${yearData.year}`,
+    Income: Math.round(yearData.monthlyIncome * 12), // Annual income
+    'Operating Expenses': Math.round((yearData.monthlyExpenses - calculateMonthlyPayment()) * 12), // Annual operating expenses (excluding loan payment)
+    'Net Income': Math.round(yearData.monthlyIncome * 12 - (yearData.monthlyExpenses - calculateMonthlyPayment()) * 12), // Annual net income before debt service
+    'Cash Flow': Math.round(yearData.annualCashFlow), // Annual cash flow after all expenses
+  }));
+
   const chartData = [
     { name: 'Income', value: totalMonthlyIncome, fill: '#10B981' },
     { name: 'Spending', value: totalMonthlyExpenses, fill: '#EF4444' },
@@ -329,154 +343,345 @@ export default function SummaryStep() {
 
   const maxValue = Math.max(totalMonthlyIncome, totalMonthlyExpenses);
 
+  // --- Validation Functions ---
+  const validateProperty = () => {
+    return !!(formData.address && formData.address.trim() !== '' && formData.purchasePrice && formData.purchasePrice > 0);
+  };
+
+  const validateIncome = () => {
+    const hasValidUnit = formData.units?.some(unit => 
+      unit.monthlyRent && unit.monthlyRent > 0
+    );
+    
+    // Validate other income if any exist
+    if (formData.otherIncome && formData.otherIncome.length > 0) {
+      for (const income of formData.otherIncome) {
+        // Category validation
+        if (!income.category) {
+          return false;
+        }
+        // Amount validation
+        if (!income.amount || income.amount <= 0) {
+          return false;
+        }
+      }
+    }
+    
+    return !!hasValidUnit;
+  };
+
+  const validateFinancing = () => {
+    // Use the enhanced validation that includes closing costs conditionals
+    return validateFinancingClosingCosts();
+  };
+
+  const validateExpenses = () => {
+    // Property taxes and insurance are required for meaningful analysis
+    if (!formData.expenses) return false;
+    
+    // Always required fields
+    const alwaysRequired = ['annualPropertyTaxes', 'annualPropertyInsurance'];
+    for (const field of alwaysRequired) {
+      const value = formData.expenses[field as keyof typeof formData.expenses];
+      if (typeof value !== 'number' || !value || value <= 0) return false;
+    }
+    
+    // Validate custom expenses if any exist
+    if (formData.expenses.customExpenses && formData.expenses.customExpenses.length > 0) {
+      for (const expense of formData.expenses.customExpenses) {
+        // Category validation
+        if (!expense.category ) {
+          return false;
+        }
+        // Amount validation
+        if (!expense.amount || expense.amount <= 0) {
+          return false;
+        }
+      }
+    }
+    
+    // Validate one-time expenses if any exist
+    if (formData.expenses.oneTimeExpenses && formData.expenses.oneTimeExpenses.length > 0) {
+      for (const expense of formData.expenses.oneTimeExpenses) {
+        // Category validation
+        if (!expense.category ) {
+          return false;
+        }
+        // Amount validation
+        if (!expense.amount || expense.amount <= 0) {
+          return false;
+        }
+      }
+    }
+    
+    return true;
+  };
+
+  const validateFinancingClosingCosts = () => {
+    if (!formData.finance) return false;
+    
+    // Basic financing validation
+    const financeRequired = ['downPayment', 'downPaymentType', 'interestRate', 'loanTerm'];
+    for (const field of financeRequired) {
+      const value = formData.finance[field as keyof typeof formData.finance];
+      if (value === undefined || value === null) return false;
+    }
+    
+    // Interest rate must be greater than 0
+    if (!formData.finance.interestRate || formData.finance.interestRate <= 0) return false;
+    
+    // Conditional: If closing costs are specified, they should be >= 0
+    if (formData.finance.closingCosts !== undefined && formData.finance.closingCosts <= 0) {
+      return false;
+    }
+    
+    // Conditional: If points are specified, they should be >= 0 and <= 10
+    if (formData.finance.points !== undefined && 
+        (formData.finance.points < 0 || formData.finance.points > 10)) {
+      return false;
+    }
+    
+    // Conditional: If other costs are specified, they should be >= 0
+    if (formData.finance.otherCosts !== undefined && formData.finance.otherCosts < 0) {
+      return false;
+    }
+    
+    return true;
+  };
+
+  const validateRehab = () => {
+    // Rehab is only required if there are rehab costs entered
+    if (!formData.rehab) return true; // Optional section
+    
+    const hasRehabCosts = (
+      (formData.rehab.hardCosts && formData.rehab.hardCosts.length > 0) ||
+      (formData.rehab.softCosts && formData.rehab.softCosts.length > 0) ||
+      (formData.rehab.lostRevenueAndCosts && formData.rehab.lostRevenueAndCosts.length > 0)
+    );
+    
+    if (hasRehabCosts) {
+      // If rehab costs exist, validate they have proper amounts
+      const allCosts = [
+        ...(formData.rehab.hardCosts || []),
+        ...(formData.rehab.softCosts || []),
+        ...(formData.rehab.lostRevenueAndCosts || [])
+      ];
+      
+      return allCosts.every(cost => cost.amount && cost.amount > 0);
+    }
+    
+    return true;
+  };
+
+  // Dynamic validation array that includes conditional requirements
+  const getDynamicValidations = () => {
+    const validations = [
+      { section: 'Property Information', isValid: validateProperty(), step: 1 },
+      { section: 'Financing', isValid: validateFinancing(), step: 2 },
+      { section: 'Income', isValid: validateIncome(), step: 3 },
+      { section: 'Expenses', isValid: validateExpenses(), step: 4 },
+    ];
+
+    // Add conditional validation for rehab if there are rehab costs
+    const hasRehabData = formData.rehab && (
+      (formData.rehab.hardCosts && formData.rehab.hardCosts.length > 0) ||
+      (formData.rehab.softCosts && formData.rehab.softCosts.length > 0) ||
+      (formData.rehab.lostRevenueAndCosts && formData.rehab.lostRevenueAndCosts.length > 0)
+    );
+
+    if (hasRehabData) {
+      validations.push({
+        section: 'Rehab/Development',
+        isValid: validateRehab(),
+        step: 5
+      });
+    }
+
+    return validations;
+  };
+
+  const incompleteValidations = getDynamicValidations();
+
+  const incompleteSections = incompleteValidations.filter(v => !v.isValid);
+  
+  const hasIncompleteSections = incompleteSections.length > 0;
+
+  // Always show all main sections for status navigation
+  const allSections = [
+    { section: 'Property Information', isValid: validateProperty(), step: 1 },
+    { section: 'Financing', isValid: validateFinancing(), step: 2 },
+    { section: 'Income', isValid: validateIncome(), step: 3 },
+    { section: 'Expenses', isValid: validateExpenses(), step: 4 },
+    ...(formData.rehab && (
+      (formData.rehab.hardCosts && formData.rehab.hardCosts.length > 0) ||
+      (formData.rehab.softCosts && formData.rehab.softCosts.length > 0) ||
+      (formData.rehab.lostRevenueAndCosts && formData.rehab.lostRevenueAndCosts.length > 0)
+    ) ? [{ section: 'Development/Rehab', isValid: validateRehab(), step: 5 }] : []),
+    { section: 'Summary', isValid: true, step: 6 }, // Summary is always valid since we're on it
+  ];
+
   return (
     <>
       <div className="mb-6 text-center">
         <h2 className="text-2xl font-bold text-slate-800">Step 6: Summary</h2>
         <p className="text-slate-500">Review the complete analysis of your property below.</p>
-      </div>
-
-      {/* Tab Navigation */}
-      <div className="mb-6">
-        <div className="flex border-b">
-          <button
-            type="button"
-            onClick={() => setActiveTab('overview')}
-            className={`px-4 py-2 -mb-px border-b-2 ${activeTab === 'overview' ? 'border-rose-500 text-rose-600' : 'border-transparent text-slate-500'}`}
-          >
-            Overview
-          </button>
-          <button
-            type="button"
-            onClick={() => setActiveTab('amortization')}
-            className={`px-4 py-2 -mb-px border-b-2 ${activeTab === 'amortization' ? 'border-rose-500 text-rose-600' : 'border-transparent text-slate-500'}`}
-          >
-            Amortization & Proceeds
-          </button>
-        </div>
-      </div>
-
-      {/* Overview Tab Content */}
-      {activeTab === 'overview' && (
-        <>
-          {/* Rent Growth and Hold Period Section */}
-      <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-medium text-slate-800">Investment Projections</h3>
-          
-          {/* Mobile collapse button */}
-          <button
-            type="button"
-            onClick={() => setIsInvestmentProjectionsCollapsed(!isInvestmentProjectionsCollapsed)}
-            className="sm:hidden p-1 rounded-md hover:bg-blue-100 transition-colors"
-            aria-label={isInvestmentProjectionsCollapsed ? "Expand investment projections" : "Collapse investment projections"}
-          >
-            {isInvestmentProjectionsCollapsed ? (
-              <ChevronDown className="w-5 h-5 text-slate-600" />
-            ) : (
-              <ChevronUp className="w-5 h-5 text-slate-600" />
-            )}
-          </button>
-        </div>
         
-        {/* Collapsible content */}
-        <div className={`transition-all duration-300 ease-in-out overflow-hidden ${
-          isInvestmentProjectionsCollapsed ? 'sm:block hidden' : 'block'
-        }`}>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">
-                Rent Growth
-              </label>
-              <div className="flex items-center gap-2">
-                <input
-                  type="number"
-                  id="projectedRentGrowth"
-                  {...register('projectedRentGrowth', { valueAsNumber: true })}
-                  step="0.5"
-                  min="-10"
-                  max="20"
-                  className="w-20 px-2 py-1 text-sm border border-slate-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-center"
-                  placeholder="2"
-                />
-                <span className="text-sm font-medium text-slate-600">% per year</span>
-              </div>
+        {/* Section Status Navigation - Desktop & iPad only */}
+        <div className="hidden md:flex justify-center mt-4 flex-wrap gap-2">
+          {allSections.map((validation, index) => (
+            <div
+              key={index}
+              className={`px-3 py-1 rounded-full text-sm font-medium ${
+                validation.isValid
+                  ? 'bg-green-100 text-green-700'
+                  : 'bg-red-100 text-red-700'
+              }`}
+            >
+              <span className="flex items-center gap-1">
+                {validation.isValid ? '✓' : '✗'} {validation.section}
+              </span>
             </div>
-            <div>
-              <label htmlFor="expenseGrowthRate" className="block text-sm font-medium text-slate-700 mb-2">
-                Expense Growth Rate
-              </label>
-              <div className="flex items-center gap-2">
-                <input
-                  type="number"
-                  id="expenseGrowthRate"
-                  {...register('expenseGrowthRate', { valueAsNumber: true })}
-                  step="0.5"
-                  min="-5"
-                  max="15"
-                  className="w-20 px-2 py-1 text-sm border border-slate-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-center"
-                  placeholder="3"
-                />
-                <span className="text-sm font-medium text-slate-600">% per year</span>
+          ))}
+        </div>
+      </div>
+
+      {/* Show only warning when sections are incomplete */}
+      {hasIncompleteSections ? (
+        <div className="mb-6 p-8 bg-gray-50 border border-gray-200 rounded-lg text-center">
+          <AlertTriangle className="w-12 h-12 text-amber-500 mx-auto mb-4" />
+          <h3 className="text-xl font-semibold text-gray-800 mb-2">
+            Analysis Unavailable
+          </h3>
+          <p className="text-gray-600 mb-4">
+            Complete the following required sections to view detailed property analysis, cash flow projections, and investment metrics:
+          </p>
+          <div className="space-y-2 mb-4">
+            {incompleteSections.map((section, index) => (
+              <div key={index} className="flex items-center justify-center gap-2 text-gray-700">
+                <span className="font-medium">{section.section}</span>
+                <span className="text-sm text-gray-500">(Step {section.step})</span>
               </div>
-            </div>
-            <div>
-              <label htmlFor="appreciationRate" className="block text-sm font-medium text-slate-700 mb-2">
-                Appreciation Rate
-              </label>
-              <div className="flex items-center gap-2">
-                <input
-                  type="number"
-                  id="appreciationRate"
-                  {...register('appreciationRate', { valueAsNumber: true })}
-                  step="0.5"
-                  min="-5"
-                  max="15"
-                  className="w-20 px-2 py-1 text-sm border border-slate-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-center"
-                  placeholder="2"
-                />
-                <span className="text-sm font-medium text-slate-600">% per year</span>
-              </div>
-            </div>
-            <div>
-              <label htmlFor="holdPeriod" className="block text-sm font-medium text-slate-700 mb-2">
-                Hold Period
-              </label>
-              <div className="flex items-center gap-2">
-                <input
-                  type="number"
-                  id="holdPeriod"
-                  {...register('holdPeriod', { valueAsNumber: true })}
-                  step="1"
-                  min="1"
-                  max="50"
-                  className="w-20 px-2 py-1 text-sm border border-slate-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-center"
-                  placeholder="5"
-                />
-                <span className="text-sm font-medium text-slate-600">years</span>
-              </div>
-            </div>
-            <div>
-              <label htmlFor="averageLeaseLength" className="block text-sm font-medium text-slate-700 mb-2">
-                Average Lease Length
-              </label>
-              <div className="flex items-center gap-2">
-                <input
-                  type="number"
-                  id="averageLeaseLength"
-                  {...register('averageLeaseLength', { valueAsNumber: true })}
-                  step="1"
-                  min="1"
-                  max="60"
-                  className="w-20 px-2 py-1 text-sm border border-slate-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-center"
-                  placeholder="12"
-                />
-                <span className="text-sm font-medium text-slate-600">months</span>
-              </div>
+            ))}
+          </div>
+          <p className="text-sm text-gray-500">
+            Your progress is automatically saved as you fill out each section.
+          </p>
+        </div>
+      ) : (
+        <>
+          {/* Tab Navigation - Only show when analysis is available */}
+          <div className="mb-6">
+            <div className="flex border-b">
+              <button
+                type="button"
+                onClick={() => setActiveTab('overview')}
+                className={`px-4 py-2 -mb-px border-b-2 ${activeTab === 'overview' ? 'border-rose-500 text-rose-600' : 'border-transparent text-slate-500'}`}
+              >
+                <div className="text-left">
+                  <div className="font-medium">Overview</div>
+                  <div className="hidden md:block text-xs text-slate-400 mt-0.5">Analysis & Cash Flow</div>
+                </div>
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveTab('simulation')}
+                className={`px-4 py-2 -mb-px border-b-2 ${activeTab === 'simulation' ? 'border-rose-500 text-rose-600' : 'border-transparent text-slate-500'}`}
+              >
+                <div className="text-left">
+                  <div className="font-medium">Simulation</div>
+                  <div className="hidden md:block text-xs text-slate-400 mt-0.5">Projections & Exit Analysis</div>
+                </div>
+              </button>
             </div>
           </div>
-        </div>
-      </div>
+
+          {/* Overview Tab Content */}
+          {activeTab === 'overview' && (
+        <>
+          {/* Cash Flow Line Chart */}
+          <div className="mb-6 bg-white p-3 sm:p-6 rounded-lg shadow-md">
+            <h4 className="text-lg sm:text-2xl font-bold text-slate-800 mb-4 sm:mb-6">Cash Flow Over Time</h4>
+            <div className="h-56 sm:h-80">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart 
+                  data={cashFlowChartData} 
+                  margin={{ top: 5, right: 15, left: 10, bottom: 35 }}
+                >
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                  <XAxis 
+                    dataKey="year" 
+                    tick={{ fontSize: 10 }}
+                    stroke="#64748b"
+                    interval={0}
+                    angle={-45}
+                    textAnchor="end"
+                    height={60}
+                  />
+                  <YAxis 
+                    tick={{ fontSize: 10 }}
+                    stroke="#64748b"
+                    tickFormatter={(value) => `$${(value / 1000).toFixed(0)}k`}
+                    width={45}
+                  />
+                  <Tooltip 
+                    formatter={(value: number, name: string) => [
+                      `$${value.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`,
+                      name
+                    ]}
+                    labelStyle={{ color: '#1e293b', fontSize: '12px' }}
+                    contentStyle={{ 
+                      backgroundColor: 'white', 
+                      border: '1px solid #e2e8f0',
+                      borderRadius: '6px',
+                      boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+                      fontSize: '12px',
+                      padding: '8px',
+                      maxWidth: '200px'
+                    }}
+                  />
+                  <Legend 
+                    wrapperStyle={{ 
+                      fontSize: '11px',
+                      paddingTop: '10px'
+                    }}
+                    iconSize={12}
+                  />
+                  <Line 
+                    type="monotone" 
+                    dataKey="Income" 
+                    stroke="#10B981" 
+                    strokeWidth={2}
+                    dot={{ fill: '#10B981', strokeWidth: 1, r: 3 }}
+                    activeDot={{ r: 5, stroke: '#10B981', strokeWidth: 2 }}
+                  />
+                  <Line 
+                    type="monotone" 
+                    dataKey="Operating Expenses" 
+                    stroke="#F59E0B" 
+                    strokeWidth={2}
+                    dot={{ fill: '#F59E0B', strokeWidth: 1, r: 3 }}
+                    activeDot={{ r: 5, stroke: '#F59E0B', strokeWidth: 2 }}
+                  />
+                  <Line 
+                    type="monotone" 
+                    dataKey="Net Income" 
+                    stroke="#3B82F6" 
+                    strokeWidth={2}
+                    dot={{ fill: '#3B82F6', strokeWidth: 1, r: 3 }}
+                    activeDot={{ r: 5, stroke: '#3B82F6', strokeWidth: 2 }}
+                  />
+                  <Line 
+                    type="monotone" 
+                    dataKey="Cash Flow" 
+                    stroke="#8B5CF6" 
+                    strokeWidth={2}
+                    dot={{ fill: '#8B5CF6', strokeWidth: 1, r: 3 }}
+                    activeDot={{ r: 5, stroke: '#8B5CF6', strokeWidth: 2 }}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
 
       <div className="space-y-6">
         <h3 className="text-xl font-bold text-slate-800 border-b pb-2">Key Financials</h3>
@@ -693,77 +898,165 @@ export default function SummaryStep() {
         </>
       )}
 
-      {/* Amortization & Proceeds Tab */}
-      {activeTab === 'amortization' && (
+      {/* Simulation Tab */}
+      {activeTab === 'simulation' && (
         <div className="space-y-6">
-          {/* Loan Balance & Property Value by Year */}
-          <div className="bg-white p-4 sm:p-6 rounded-lg shadow-md">
-            <h3 className="text-lg sm:text-xl font-bold text-slate-800 mb-4">Loan Balance & Property Value by Year</h3>
-            <div className="overflow-x-auto">
-              <table className="w-full table-auto text-xs">
-                <thead>
-                  <tr className="bg-slate-100">
-                    <th className="px-1 sm:px-4 py-2 text-left text-slate-800 font-medium text-xs sm:text-sm">Year</th>
-                    <th className="px-1 sm:px-4 py-2 text-right text-slate-800 font-medium text-xs sm:text-sm">
-                      <span className="block sm:hidden">Value</span>
-                      <span className="hidden sm:block">Property Value</span>
-                    </th>
-                    <th className="px-1 sm:px-4 py-2 text-right text-slate-800 font-medium text-xs sm:text-sm">
-                      <span className="block sm:hidden">Loan</span>
-                      <span className="hidden sm:block">Loan Balance</span>
-                    </th>
-                    <th className="px-1 sm:px-4 py-2 text-right text-slate-800 font-medium text-xs sm:text-sm">Equity</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {(() => {
-                    const loanBalances = calculateLoanBalanceByYear();
-                    const propertyValues = calculatePropertyValueByYear();
-                    
-                    return loanBalances.map((loanData, index) => {
-                      const propertyData = propertyValues[index];
-                      const equity = propertyData ? propertyData.propertyValue - loanData.remainingBalance : 0;
-                      
-                      return (
-                        <tr key={loanData.year} className="border-b border-slate-200">
-                          <td className="px-1 sm:px-4 py-2 text-xs font-medium text-slate-800">
-                            <span className="block sm:hidden">Y{loanData.year}</span>
-                            <span className="hidden sm:block">Year {loanData.year}</span>
-                          </td>
-                          <td className="px-1 sm:px-4 py-2 text-xs text-right text-slate-600">
-                            <span className="block sm:hidden">
-                              ${propertyData ? Math.round(propertyData.propertyValue / 1000).toLocaleString() : '0'}k
-                            </span>
-                            <span className="hidden sm:block">
-                              ${propertyData ? propertyData.propertyValue.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 }) : '0'}
-                            </span>
-                          </td>
-                          <td className="px-1 sm:px-4 py-2 text-xs text-right text-slate-600">
-                            <span className="block sm:hidden">
-                              ${Math.round(loanData.remainingBalance / 1000).toLocaleString()}k
-                            </span>
-                            <span className="hidden sm:block">
-                              ${loanData.remainingBalance.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
-                            </span>
-                          </td>
-                          <td className="px-1 sm:px-4 py-2 text-xs text-right font-medium text-green-600">
-                            <span className="block sm:hidden">
-                              ${Math.round(equity / 1000).toLocaleString()}k
-                            </span>
-                            <span className="hidden sm:block">
-                              ${equity.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
-                            </span>
-                          </td>
-                        </tr>
-                      );
-                    });
-                  })()}
-                </tbody>
-              </table>
+          {/* Investment Projections Section */}
+          <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-medium text-slate-800">Investment Projections</h3>
+              
+              {/* Mobile collapse button */}
+              <button
+                type="button"
+                onClick={() => setIsInvestmentProjectionsCollapsed(!isInvestmentProjectionsCollapsed)}
+                className="sm:hidden p-1 rounded-md hover:bg-blue-100 transition-colors"
+                aria-label={isInvestmentProjectionsCollapsed ? "Expand investment projections" : "Collapse investment projections"}
+              >
+                {isInvestmentProjectionsCollapsed ? (
+                  <ChevronDown className="w-5 h-5 text-slate-600" />
+                ) : (
+                  <ChevronUp className="w-5 h-5 text-slate-600" />
+                )}
+              </button>
+            </div>
+            
+            {/* Collapsible content */}
+            <div className={`transition-all duration-300 ease-in-out overflow-hidden ${
+              isInvestmentProjectionsCollapsed ? 'sm:block hidden' : 'block'
+            }`}>
+              <div className="mb-3 p-2 bg-blue-100 rounded-md">
+                <p className="text-xs text-blue-700 font-medium">💡 Tip: Use the sliders below to adjust projection values and see how they impact your investment returns</p>
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Rent Growth: <span className="font-bold text-blue-600">{watch('projectedRentGrowth') || 2}%</span> per year
+                  </label>
+                  <input
+                    type="range"
+                    id="projectedRentGrowth"
+                    {...register('projectedRentGrowth', { valueAsNumber: true })}
+                    min="-10"
+                    max="20"
+                    step="0.5"
+                    defaultValue="2"
+                    className="w-full h-2 bg-blue-200 rounded-lg appearance-none cursor-pointer slider"
+                  />
+                  <div className="flex justify-between text-xs text-gray-500 mt-1">
+                    <span>-10%</span>
+                    <span>20%</span>
+                  </div>
+                </div>
+                
+                <div>
+                  <label htmlFor="expenseGrowthRate" className="block text-sm font-medium text-slate-700 mb-2">
+                    Expense Growth Rate: <span className="font-bold text-blue-600">{watch('expenseGrowthRate') || 3}%</span> per year
+                  </label>
+                  <input
+                    type="range"
+                    id="expenseGrowthRate"
+                    {...register('expenseGrowthRate', { valueAsNumber: true })}
+                    min="-5"
+                    max="15"
+                    step="0.5"
+                    defaultValue="3"
+                    className="w-full h-2 bg-blue-200 rounded-lg appearance-none cursor-pointer slider"
+                  />
+                  <div className="flex justify-between text-xs text-gray-500 mt-1">
+                    <span>-5%</span>
+                    <span>15%</span>
+                  </div>
+                </div>
+                
+                <div>
+                  <label htmlFor="appreciationRate" className="block text-sm font-medium text-slate-700 mb-2">
+                    Appreciation Rate: <span className="font-bold text-blue-600">{watch('appreciationRate') || 2}%</span> per year
+                  </label>
+                  <input
+                    type="range"
+                    id="appreciationRate"
+                    {...register('appreciationRate', { valueAsNumber: true })}
+                    min="-5"
+                    max="15"
+                    step="0.5"
+                    defaultValue="2"
+                    className="w-full h-2 bg-blue-200 rounded-lg appearance-none cursor-pointer slider"
+                  />
+                  <div className="flex justify-between text-xs text-gray-500 mt-1">
+                    <span>-5%</span>
+                    <span>15%</span>
+                  </div>
+                </div>
+                
+                <div>
+                  <label htmlFor="holdPeriod" className="block text-sm font-medium text-slate-700 mb-2">
+                    Hold Period: <span className="font-bold text-blue-600">{watch('holdPeriod') || 5}</span> years
+                  </label>
+                  <input
+                    type="range"
+                    id="holdPeriod"
+                    {...register('holdPeriod', { valueAsNumber: true })}
+                    min="1"
+                    max="50"
+                    step="1"
+                    defaultValue="5"
+                    className="w-full h-2 bg-blue-200 rounded-lg appearance-none cursor-pointer slider"
+                  />
+                  <div className="flex justify-between text-xs text-gray-500 mt-1">
+                    <span>1 yr</span>
+                    <span>50 yrs</span>
+                  </div>
+                </div>
+                
+                <div>
+                  <label htmlFor="averageLeaseLength" className="block text-sm font-medium text-slate-700 mb-2">
+                    Average Lease Length: <span className="font-bold text-blue-600">{watch('averageLeaseLength') || 12}</span> months
+                  </label>
+                  <input
+                    type="range"
+                    id="averageLeaseLength"
+                    {...register('averageLeaseLength', { valueAsNumber: true })}
+                    min="1"
+                    max="60"
+                    step="1"
+                    defaultValue="12"
+                    className="w-full h-2 bg-blue-200 rounded-lg appearance-none cursor-pointer slider"
+                  />
+                  <div className="flex justify-between text-xs text-gray-500 mt-1">
+                    <span>1 mo</span>
+                    <span>60 mos</span>
+                  </div>
+                </div>
+                
+                <div>
+                  <label htmlFor="vacancyRate" className="block text-sm font-medium text-slate-700 mb-2">
+                    <span className="flex items-center gap-1">
+                      Vacancy Rate: <span className="font-bold text-blue-600">{watch('vacancyRate') || 5}%</span> per year
+                      <span className="text-blue-600">✏️</span>
+                    </span>
+                  </label>
+                  <input
+                    type="range"
+                    id="vacancyRate"
+                    {...register('vacancyRate', { valueAsNumber: true })}
+                    min="0"
+                    max="30"
+                    step="0.5"
+                    defaultValue="5"
+                    className="w-full h-2 bg-blue-200 rounded-lg appearance-none cursor-pointer slider"
+                  />
+                  <div className="flex justify-between text-xs text-gray-500 mt-1">
+                    <span>0%</span>
+                    <span>30%</span>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
 
-          {/* Net Proceeds by Year */}
+          {/* Net Sale Proceeds by Year */}
           <div className="bg-white p-4 sm:p-6 rounded-lg shadow-md">
             <h3 className="text-lg sm:text-xl font-bold text-slate-800 mb-4">Net Sale Proceeds by Year</h3>
             <div className="overflow-x-auto">
@@ -844,6 +1137,10 @@ export default function SummaryStep() {
             </p>
           </div>
         </div>
+      )}
+
+      {/* Close the main conditional for complete analysis */}
+      </>
       )}
     </>
   );

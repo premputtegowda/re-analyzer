@@ -4,11 +4,11 @@ export type PropertyType = 'Single Family Home' | 'MultiFamily' | 'Townhouse' | 
 export type DownPaymentType = 'percentage' | 'amount';
 
 export interface Unit {
-  beds: number;
-  baths: number;
-  sqft: number;
-  monthlyRent?: number;
-  numberOfUnits?: number;
+  monthlyRent: number;    // Required field, moved to front
+  beds?: number;          // Optional with default 0
+  baths?: number;         // Optional with default 1
+  sqft?: number;          // Optional with default 0
+  numberOfUnits?: number; // Optional with default 1
 }
 
 export interface OtherIncomeItem {
@@ -69,21 +69,37 @@ export interface RehabData {
 export interface PropertyData {
   address: string;
   purchasePrice: number;
-  propertyType?: PropertyType;
-  projectedRentGrowth?: number;
-  holdPeriod?: number;
-  averageLeaseLength?: number;
-  expenseGrowthRate?: number;
-  appreciationRate?: number;
+  propertyType: PropertyType;
+  projectedRentGrowth: number;
+  holdPeriod: number;
+  averageLeaseLength: number;
+  expenseGrowthRate: number;
+  appreciationRate: number;
+  vacancyRate: number;
   units: Unit[];
-  otherIncome: OtherIncomeItem[];
+  otherIncome?: OtherIncomeItem[];
   finance: FinanceData;
   expenses: ExpenseData;
-  rehab: RehabData;
+  rehab?: RehabData;
 }
 
-export interface PropertySummary extends PropertyData {
+export interface PropertySummary {
   id: string;
-  nickname: string;
-  imageUrl: string;
+  address: string;
+  purchasePrice: number;
+  propertyType: PropertyType;
+  projectedRentGrowth: number;
+  holdPeriod: number;
+  averageLeaseLength: number;
+  expenseGrowthRate: number;
+  appreciationRate: number;
+  vacancyRate: number;
+  units: Unit[];
+  otherIncome?: OtherIncomeItem[];
+  finance: FinanceData;
+  expenses: ExpenseData;
+  rehab?: RehabData;
+  userId: string;
+  nickname?: string;
+  imageUrl?: string;
 }

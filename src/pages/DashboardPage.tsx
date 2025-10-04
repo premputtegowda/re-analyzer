@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Plus } from 'lucide-react';
 import PropertyCard from '../components/PropertyCard';
 import { PropertySummary } from '../types/property';
+import { propertyApi } from '../services/propertyApi';
 
 type DashboardProps = {
   user: { name: string; email: string };
@@ -16,16 +17,18 @@ export default function DashboardPage({ user, handleLogout }: DashboardProps) {
 
   useEffect(() => {
     // Fetch the list of properties from our Flask backend
-    fetch(`${process.env.REACT_APP_BACKEND_URL}/api/properties`, { credentials: 'include' })
-      .then(res => res.json())
-      .then(data => {
+    const fetchProperties = async () => {
+      try {
+        const data = await propertyApi.getProperties();
         setProperties(data);
-        setLoading(false);
-      })
-      .catch(error => {
+      } catch (error) {
         console.error("Error fetching properties:", error);
+      } finally {
         setLoading(false);
-      });
+      }
+    };
+
+    fetchProperties();
   }, []);
 
   if (loading) {

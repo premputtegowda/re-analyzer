@@ -24,7 +24,7 @@ export default function ExpensesStep() {
       const numberOfUnits = unit.numberOfUnits || 1;
       return acc + (rent * numberOfUnits);
     }, 0);
-    const totalOtherIncome = otherIncome.reduce((acc, item) => acc + (item.amount || 0), 0);
+    const totalOtherIncome = otherIncome?.reduce((acc, item) => acc + (item.amount || 0), 0) || 0;
     return totalUnitRent + totalOtherIncome;
   };
 
@@ -83,7 +83,7 @@ export default function ExpensesStep() {
             {...register('expenses.annualPropertyTaxes', { 
               required: 'Annual Property Tax is required',
               valueAsNumber: true,
-              min: { value: 0, message: 'Property tax cannot be negative' }
+              min: { value: 0.01, message: 'Property tax must be greater than 0' }
             })} 
             className={`w-full px-3 py-2 border rounded-md shadow-sm ${
               errors.expenses?.annualPropertyTaxes ? 'border-red-500' : 'border-slate-300'
@@ -103,7 +103,7 @@ export default function ExpensesStep() {
             {...register('expenses.annualPropertyInsurance', { 
               required: 'Annual Property Insurance is required',
               valueAsNumber: true,
-              min: { value: 0, message: 'Property insurance cannot be negative' }
+              min: { value: 0.01, message: 'Property insurance must be greater than 0' }
             })} 
             className={`w-full px-3 py-2 border rounded-md shadow-sm ${
               errors.expenses?.annualPropertyInsurance ? 'border-red-500' : 'border-slate-300'
@@ -179,28 +179,51 @@ export default function ExpensesStep() {
 
       <hr className="my-6" />
 
-      <h3 className="text-lg font-medium text-slate-800">Custom Monthly Recurring Expenses</h3>
+            <h3 className="text-lg font-medium text-slate-800">Custom Monthly Expenses</h3>
       {customExpenseFields.map((field, index) => (
-        <div key={field.id} className="flex items-center gap-4 mb-4">
-          <input
-            {...register(`expenses.customExpenses.${index}.category`)}
-            placeholder="Category"
-            className="w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm"
-          />
-          <input
-            type="number"
-            {...register(`expenses.customExpenses.${index}.amount`, { valueAsNumber: true })}
-            placeholder="Amount"
-            className="w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm"
-          />
-          <button
-            type="button"
-            onClick={() => removeCustomExpense(index)}
-            className="p-2 rounded-md hover:bg-red-100"
-            aria-label="Remove Custom Expense"
-          >
-            <Trash2 className="w-5 h-5 text-red-600" />
-          </button>
+        <div key={field.id}>
+          {index > 0 && <hr className="my-4 border-slate-200" />}
+          <div className="flex flex-col sm:flex-row sm:items-center gap-4 mb-4">
+            <div className="w-full">
+              <input
+                {...register(`expenses.customExpenses.${index}.category`, {
+                  required: 'Custom expense category is required'
+                })}
+                placeholder="e.g., Property Manager, lawn care"
+                className={`w-full px-3 py-2 border rounded-md shadow-sm ${
+                  errors.expenses?.customExpenses?.[index]?.category ? 'border-red-500' : 'border-slate-300'
+                }`}
+              />
+              {errors.expenses?.customExpenses?.[index]?.category && (
+                <p className="mt-1 text-sm text-red-600">{errors.expenses?.customExpenses?.[index]?.category?.message}</p>
+              )}
+            </div>
+            <div className="w-full">
+              <input
+                type="number"
+                {...register(`expenses.customExpenses.${index}.amount`, {
+                  valueAsNumber: true,
+                  required: 'Custom expense amount is required',
+                  min: { value: 0.01, message: 'Amount must be greater than 0' }
+                })}
+                placeholder="Amount"
+                className={`w-full px-3 py-2 border rounded-md shadow-sm ${
+                  errors.expenses?.customExpenses?.[index]?.amount ? 'border-red-500' : 'border-slate-300'
+                }`}
+              />
+              {errors.expenses?.customExpenses?.[index]?.amount && (
+                <p className="mt-1 text-sm text-red-600">{errors.expenses?.customExpenses?.[index]?.amount?.message}</p>
+              )}
+            </div>
+            <button
+              type="button"
+              onClick={() => removeCustomExpense(index)}
+              className="p-2 rounded-md hover:bg-red-100 self-start sm:self-center"
+              aria-label="Remove Custom Monthly Expense"
+            >
+              <Trash2 className="w-5 h-5 text-red-600" />
+            </button>
+          </div>
         </div>
       ))}
       <button
@@ -220,26 +243,49 @@ export default function ExpensesStep() {
 
       <h3 className="text-lg font-medium text-slate-800">One-Time Expenses</h3>
       {oneTimeExpenseFields.map((field, index) => (
-        <div key={field.id} className="flex items-center gap-4 mb-4">
-          <input
-            {...register(`expenses.oneTimeExpenses.${index}.category`)}
-            placeholder="e.g., Inspection, Attorney Fees"
-            className="w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm"
-          />
-          <input
-            type="number"
-            {...register(`expenses.oneTimeExpenses.${index}.amount`, { valueAsNumber: true })}
-            placeholder="Amount"
-            className="w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm"
-          />
-          <button
-            type="button"
-            onClick={() => removeOneTimeExpense(index)}
-            className="p-2 rounded-md hover:bg-red-100"
-            aria-label="Remove One-Time Expense"
-          >
-            <Trash2 className="w-5 h-5 text-red-600" />
-          </button>
+        <div key={field.id}>
+          {index > 0 && <hr className="my-4 border-slate-200" />}
+          <div className="flex flex-col sm:flex-row sm:items-center gap-4 mb-4">
+            <div className="w-full">
+              <input
+                {...register(`expenses.oneTimeExpenses.${index}.category`, {
+                  required: 'One-time expense category is required'
+                })}
+                placeholder="e.g., Inspection, Attorney Fees"
+                className={`w-full px-3 py-2 border rounded-md shadow-sm ${
+                  errors.expenses?.oneTimeExpenses?.[index]?.category ? 'border-red-500' : 'border-slate-300'
+                }`}
+              />
+              {errors.expenses?.oneTimeExpenses?.[index]?.category && (
+                <p className="mt-1 text-sm text-red-600">{errors.expenses?.oneTimeExpenses?.[index]?.category?.message}</p>
+              )}
+            </div>
+            <div className="w-full">
+              <input
+                type="number"
+                {...register(`expenses.oneTimeExpenses.${index}.amount`, {
+                  valueAsNumber: true,
+                  required: 'One-time expense amount is required',
+                  min: { value: 0.01, message: 'Amount must be greater than 0' }
+                })}
+                placeholder="Amount"
+                className={`w-full px-3 py-2 border rounded-md shadow-sm ${
+                  errors.expenses?.oneTimeExpenses?.[index]?.amount ? 'border-red-500' : 'border-slate-300'
+                }`}
+              />
+              {errors.expenses?.oneTimeExpenses?.[index]?.amount && (
+                <p className="mt-1 text-sm text-red-600">{errors.expenses?.oneTimeExpenses?.[index]?.amount?.message}</p>
+              )}
+            </div>
+            <button
+              type="button"
+              onClick={() => removeOneTimeExpense(index)}
+              className="p-2 rounded-md hover:bg-red-100 self-start sm:self-center"
+              aria-label="Remove One-Time Expense"
+            >
+              <Trash2 className="w-5 h-5 text-red-600" />
+            </button>
+          </div>
         </div>
       ))}
       <button

@@ -21,7 +21,7 @@ export default function PropertyInfoStep() {
     if (type === 'MultiFamily') {
       replace([{ ...initialUnitState }]);
     } else {
-      replace([{ beds: 1, baths: 1, sqft: 0, monthlyRent: 0 }]);
+      replace([{ beds: 1, baths: 1, sqft: 0, monthlyRent: 0, numberOfUnits: 1 }]);
     }
   };
 
@@ -95,12 +95,24 @@ export default function PropertyInfoStep() {
       {fields.map((item, index) => (
         <div key={item.id} className="p-3 sm:p-4 border rounded-md">
           <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-end gap-3 sm:gap-4">
-            <div className="flex gap-2 items-end">
-              <div className="w-16 sm:min-w-[60px]">
+            {propertyType === 'MultiFamily' && fields.length > 1 && 
+              <div className="flex justify-start order-first">
+                <button
+                  type="button"
+                  onClick={() => remove(index)}
+                  className="p-2 rounded-md hover:bg-red-100"
+                  aria-label="Remove Unit"
+                >
+                  <Trash2 className="w-5 h-5 text-red-600" />
+                </button>
+              </div>
+            }
+            <div className="flex gap-2 flex-1">
+              <div className="flex-1">
                 <label htmlFor={`units.${index}.beds`} className="block text-xs font-medium text-slate-600">Beds</label>
                 <input {...register(`units.${index}.beds`, { valueAsNumber: true })} id={`units.${index}.beds`} className="w-full mt-1 p-2 border rounded-md text-sm" />
               </div>
-              <div className="w-16 sm:min-w-[60px]">
+              <div className="flex-1">
                 <label htmlFor={`units.${index}.baths`} className="block text-xs font-medium text-slate-600">Baths</label>
                 <input {...register(`units.${index}.baths`, { valueAsNumber: true })} id={`units.${index}.baths`} className="w-full mt-1 p-2 border rounded-md text-sm" />
               </div>
@@ -116,19 +128,6 @@ export default function PropertyInfoStep() {
                 <input {...register(`units.${index}.numberOfUnits`, { valueAsNumber: true })} id={`units.${index}.numberOfUnits`} className="w-full mt-1 p-2 border rounded-md text-sm" />
               </div>
             )}
-            
-            {propertyType === 'MultiFamily' && fields.length > 1 && 
-              <div className="flex justify-center sm:justify-start">
-                <button
-                  type="button"
-                  onClick={() => remove(index)}
-                  className="p-2 rounded-md hover:bg-red-100"
-                  aria-label="Remove Unit"
-                >
-                  <Trash2 className="w-5 h-5 text-red-600" />
-                </button>
-              </div>
-            }
           </div>
         </div>
       ))}

@@ -5,7 +5,7 @@ import { Trash2 } from 'lucide-react';
 
 export default function RehabStep() {
   const [activeRehabTab, setActiveRehabTab] = useState<'hardCosts' | 'softCosts'>('hardCosts');
-  const { register, watch } = useFormContext<PropertyData>();
+  const { register, watch, formState: { errors } } = useFormContext<PropertyData>();
 
   const { fields: hardCostFields, append: appendHardCost, remove: removeHardCost } = useFieldArray({
     name: "rehab.hardCosts",
@@ -60,26 +60,49 @@ export default function RehabStep() {
       {activeRehabTab === 'hardCosts' && (
         <div className="space-y-4 pt-4">
           {hardCostFields.map((field, index) => (
-            <div key={field.id} className="flex items-center gap-4">
-              <input
-                {...register(`rehab.hardCosts.${index}.category`)}
-                placeholder="Category"
-                className="w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm"
-              />
-              <input
-                type="number"
-                {...register(`rehab.hardCosts.${index}.amount`, { valueAsNumber: true })}
-                placeholder="Amount"
-                className="w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm"
-              />
-              <button
-                type="button"
-                onClick={() => removeHardCost(index)}
-                className="p-2 rounded-md hover:bg-red-100"
-                aria-label="Remove Hard Cost"
-              >
-                <Trash2 className="w-5 h-5 text-red-600" />
-              </button>
+            <div key={field.id}>
+              {index > 0 && <hr className="my-4 border-slate-200" />}
+              <div className="flex flex-col sm:flex-row sm:items-center gap-4 mb-4">
+                <div className="w-full">
+                  <input
+                    {...register(`rehab.hardCosts.${index}.category`, {
+                      required: 'Hard cost category is required'
+                    })}
+                    placeholder="Category"
+                    className={`w-full px-3 py-2 border rounded-md shadow-sm ${
+                      errors.rehab?.hardCosts?.[index]?.category ? 'border-red-500' : 'border-slate-300'
+                    }`}
+                  />
+                  {errors.rehab?.hardCosts?.[index]?.category && (
+                    <p className="mt-1 text-sm text-red-600">{errors.rehab?.hardCosts?.[index]?.category?.message}</p>
+                  )}
+                </div>
+                <div className="w-full">
+                  <input
+                    type="number"
+                    {...register(`rehab.hardCosts.${index}.amount`, {
+                      valueAsNumber: true,
+                      required: 'Hard cost amount is required',
+                      min: { value: 0.01, message: 'Amount must be greater than 0' }
+                    })}
+                    placeholder="Amount"
+                    className={`w-full px-3 py-2 border rounded-md shadow-sm ${
+                      errors.rehab?.hardCosts?.[index]?.amount ? 'border-red-500' : 'border-slate-300'
+                    }`}
+                  />
+                  {errors.rehab?.hardCosts?.[index]?.amount && (
+                    <p className="mt-1 text-sm text-red-600">{errors.rehab?.hardCosts?.[index]?.amount?.message}</p>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => removeHardCost(index)}
+                  className="p-2 rounded-md hover:bg-red-100 self-start sm:self-center"
+                  aria-label="Remove Hard Cost"
+                >
+                  <Trash2 className="w-5 h-5 text-red-600" />
+                </button>
+              </div>
             </div>
           ))}
           <button
@@ -95,26 +118,49 @@ export default function RehabStep() {
       {activeRehabTab === 'softCosts' && (
         <div className="space-y-4 pt-4">
           {softCostFields.map((field, index) => (
-            <div key={field.id} className="flex items-center gap-4">
-              <input
-                {...register(`rehab.softCosts.${index}.category`)}
-                placeholder="Category"
-                className="w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm"
-              />
-              <input
-                type="number"
-                {...register(`rehab.softCosts.${index}.amount`, { valueAsNumber: true })}
-                placeholder="Amount"
-                className="w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm"
-              />
-              <button
-                type="button"
-                onClick={() => removeSoftCost(index)}
-                className="p-2 rounded-md hover:bg-red-100"
-                aria-label="Remove Soft Cost"
-              >
-                <Trash2 className="w-5 h-5 text-red-600" />
-              </button>
+            <div key={field.id}>
+              {index > 0 && <hr className="my-4 border-slate-200" />}
+              <div className="flex flex-col sm:flex-row sm:items-center gap-4 mb-4">
+                <div className="w-full">
+                  <input
+                    {...register(`rehab.softCosts.${index}.category`, {
+                      required: 'Soft cost category is required'
+                    })}
+                    placeholder="Category"
+                    className={`w-full px-3 py-2 border rounded-md shadow-sm ${
+                      errors.rehab?.softCosts?.[index]?.category ? 'border-red-500' : 'border-slate-300'
+                    }`}
+                  />
+                  {errors.rehab?.softCosts?.[index]?.category && (
+                    <p className="mt-1 text-sm text-red-600">{errors.rehab?.softCosts?.[index]?.category?.message}</p>
+                  )}
+                </div>
+                <div className="w-full">
+                  <input
+                    type="number"
+                    {...register(`rehab.softCosts.${index}.amount`, {
+                      valueAsNumber: true,
+                      required: 'Soft cost amount is required',
+                      min: { value: 0.01, message: 'Amount must be greater than 0' }
+                    })}
+                    placeholder="Amount"
+                    className={`w-full px-3 py-2 border rounded-md shadow-sm ${
+                      errors.rehab?.softCosts?.[index]?.amount ? 'border-red-500' : 'border-slate-300'
+                    }`}
+                  />
+                  {errors.rehab?.softCosts?.[index]?.amount && (
+                    <p className="mt-1 text-sm text-red-600">{errors.rehab?.softCosts?.[index]?.amount?.message}</p>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => removeSoftCost(index)}
+                  className="p-2 rounded-md hover:bg-red-100 self-start sm:self-center"
+                  aria-label="Remove Soft Cost"
+                >
+                  <Trash2 className="w-5 h-5 text-red-600" />
+                </button>
+              </div>
             </div>
           ))}
           <button
@@ -144,37 +190,74 @@ export default function RehabStep() {
 
       <hr className="my-6" />
 
-      <h3 className="text-lg font-medium text-slate-800">Lost Revenue/Costs Incurred During Rehab</h3>
-      {lostRevenueFields.map((field, index) => (
-        <div key={field.id} className="flex items-center gap-4">
-          <input
-            {...register(`rehab.lostRevenueAndCosts.${index}.category`)}
-            placeholder="e.g., Lost Revenue, Utilities"
-            className="w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm"
-          />
-          <input
-            type="number"
-            {...register(`rehab.lostRevenueAndCosts.${index}.amount`, { valueAsNumber: true })}
-            placeholder="Amount"
-            className="w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm"
-          />
+      {lostRevenueFields.length === 0 ? (
+        <div className="text-center py-4">
           <button
             type="button"
-            onClick={() => removeLostRevenue(index)}
-            className="p-2 rounded-md hover:bg-red-100"
-            aria-label="Remove Cost"
+            onClick={() => appendLostRevenue({ category: '', amount: 0 })}
+            className="text-rose-600 hover:text-rose-800 font-semibold"
           >
-            <Trash2 className="w-5 h-5 text-red-600" />
+            + Add Lost Revenue/Cost Incurred During Rehab
           </button>
         </div>
-      ))}
-      <button
-        type="button"
-        onClick={() => appendLostRevenue({ category: '', amount: 0 })}
-        className="text-rose-600 hover:text-rose-800 font-semibold"
-      >
-        + Add Cost/Lost Revenue
-      </button>
+      ) : (
+        <>
+          <h3 className="text-lg font-medium text-slate-800">Lost Revenue/Costs Incurred During Rehab</h3>
+          {lostRevenueFields.map((field, index) => (
+            <div key={field.id}>
+              {index > 0 && <hr className="my-4 border-slate-200" />}
+              <div className="flex flex-col sm:flex-row sm:items-center gap-4 mb-4">
+                <div className="w-full">
+                  <input
+                    {...register(`rehab.lostRevenueAndCosts.${index}.category`, {
+                      required: 'Lost revenue/cost category is required'
+                    })}
+                    placeholder="e.g., Lost Revenue, Utilities"
+                    className={`w-full px-3 py-2 border rounded-md shadow-sm ${
+                      errors.rehab?.lostRevenueAndCosts?.[index]?.category ? 'border-red-500' : 'border-slate-300'
+                    }`}
+                  />
+                  {errors.rehab?.lostRevenueAndCosts?.[index]?.category && (
+                    <p className="mt-1 text-sm text-red-600">{errors.rehab?.lostRevenueAndCosts?.[index]?.category?.message}</p>
+                  )}
+                </div>
+                <div className="w-full">
+                  <input
+                    type="number"
+                    {...register(`rehab.lostRevenueAndCosts.${index}.amount`, {
+                      valueAsNumber: true,
+                      required: 'Lost revenue/cost amount is required',
+                      min: { value: 0.01, message: 'Amount must be greater than 0' }
+                    })}
+                    placeholder="Amount"
+                    className={`w-full px-3 py-2 border rounded-md shadow-sm ${
+                      errors.rehab?.lostRevenueAndCosts?.[index]?.amount ? 'border-red-500' : 'border-slate-300'
+                    }`}
+                  />
+                  {errors.rehab?.lostRevenueAndCosts?.[index]?.amount && (
+                    <p className="mt-1 text-sm text-red-600">{errors.rehab?.lostRevenueAndCosts?.[index]?.amount?.message}</p>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => removeLostRevenue(index)}
+                  className="p-2 rounded-md hover:bg-red-100 self-start sm:self-center"
+                  aria-label="Remove Cost"
+                >
+                  <Trash2 className="w-5 h-5 text-red-600" />
+                </button>
+              </div>
+            </div>
+          ))}
+          <button
+            type="button"
+            onClick={() => appendLostRevenue({ category: '', amount: 0 })}
+            className="text-rose-600 hover:text-rose-800 font-semibold"
+          >
+            + Add Cost/Lost Revenue
+          </button>
+        </>
+      )}
     </>
   );
 }

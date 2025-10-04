@@ -13,11 +13,11 @@ export default function PropertyCard({ property }: PropertyCardProps) {
 
   return (
     <div className="bg-white rounded-lg shadow-md overflow-hidden transform hover:-translate-y-1 transition-transform duration-300">
-      <img src={property.imageUrl} alt={property.nickname} className="w-full h-48 object-cover" />
+      <img src={property.imageUrl || '/placeholder-property.jpg'} alt={property.nickname || 'Property'} className="w-full h-48 object-cover" />
       <div className="p-4">
-        <h3 className="text-xl font-bold text-slate-800 mb-1">{property.nickname}</h3>
+        <h3 className="text-xl font-bold text-slate-800 mb-1">{property.nickname || 'Unnamed Property'}</h3>
         <p className="text-sm text-slate-500 flex items-center gap-2 mb-4">
-          <MapPin className="w-4 h-4" /> {property.address}
+          <MapPin className="w-4 h-4" /> {property.address || 'Address not available'}
         </p>
 
         <div className="grid grid-cols-2 gap-4 text-sm mb-4">
@@ -25,14 +25,14 @@ export default function PropertyCard({ property }: PropertyCardProps) {
             <Home className="w-5 h-5 text-rose-500" />
             <div>
               <p className="font-semibold text-slate-600">Property Type</p>
-              <p>{property.propertyType}</p>
+              <p>{property.propertyType || 'Not specified'}</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
             <DollarSign className="w-5 h-5 text-rose-500" />
             <div>
               <p className="font-semibold text-slate-600">Purchase Price</p>
-              <p>${property.purchasePrice.toLocaleString()}</p>
+              <p>${property.purchasePrice?.toLocaleString() || 'N/A'}</p>
             </div>
           </div>
         </div>
