@@ -7,26 +7,6 @@ export default function RehabStep() {
   const [activeRehabTab, setActiveRehabTab] = useState<'hardCosts' | 'softCosts'>('hardCosts');
   const [currentYearPage, setCurrentYearPage] = useState(0); // For pagination
   const { register, watch, setValue, formState: { errors } } = useFormContext<PropertyData>();
-                                updatedData[yearIndex] = {
-                                  ...updatedData[yearIndex],
-                                  items: [...updatedData[yearIndex].items, { category, amount: 0 }]
-                                };
-                                
-                                setValue('rehab.lostRevenueAndCosts', updatedData);
-                                
-                                // Optional: Focus the newly created input field after a brief delay
-                                setTimeout(() => {
-                                  const newInputs = document.querySelectorAll(`input[name*="rehab.lostRevenueAndCosts.${yearIndex}.items"]`);
-                                  const lastInput = newInputs[newInputs.length - 1] as HTMLInputElement;
-                                  if (lastInput && lastInput.type === 'number') {
-                                    lastInput.focus();
-                                    lastInput.select();
-                                  }
-                                }, 100);
-                              }}
-                              className="w-full px-1 py-1 text-xs text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"
-                            >rPage] = useState(0); // For pagination
-  const { register, watch, setValue, formState: { errors } } = useFormContext<PropertyData>();
 
   const { fields: hardCostFields, append: appendHardCost, remove: removeHardCost } = useFieldArray({
     name: "rehab.hardCosts",
@@ -134,171 +114,357 @@ export default function RehabStep() {
     return rehabData?.softCosts?.reduce((acc, item) => acc + (item.amount || 0), 0) || 0;
   };
 
-  const calculateTotalRehabCosts = () => {
-    return calculateTotalHardCosts() + calculateTotalSoftCosts();
+  const calculateTotalLostRevenue = () => {
+    return getGrandTotal();
+  };
+
+  const calculateTotalRehab = () => {
+    return calculateTotalHardCosts() + calculateTotalSoftCosts() + calculateTotalLostRevenue();
   };
 
   return (
-    <>
-      <div className="mb-6 text-center">
-        <h2 className="text-2xl font-bold text-slate-800">Step 5: Development/Rehab</h2>
-        <p className="text-slate-500">Add any development or rehab costs here.</p>
-      </div>
-      
-      <div className="flex border-b">
-        <button
-          type="button"
-          onClick={() => setActiveRehabTab('hardCosts')}
-          className={`px-4 py-2 -mb-px border-b-2 ${activeRehabTab === 'hardCosts' ? 'border-rose-500 text-rose-600' : 'border-transparent text-slate-500'}`}
-        >
-          Hard Costs
-        </button>
-        <button
-          type="button"
-          onClick={() => setActiveRehabTab('softCosts')}
-          className={`px-4 py-2 -mb-px border-b-2 ${activeRehabTab === 'softCosts' ? 'border-rose-500 text-rose-600' : 'border-transparent text-slate-500'}`}
-        >
-          Soft Costs
-        </button>
+    <div className="max-w-4xl mx-auto p-6 bg-white">
+      <div className="mb-8">
+        <h2 className="text-2xl font-bold text-slate-800 mb-2">Rehab/Development Details</h2>
+        <p className="text-slate-600">
+          Add information about any renovation or development work needed for this property.
+        </p>
       </div>
 
-      {activeRehabTab === 'hardCosts' && (
-        <div className="space-y-4 pt-4">
-          {hardCostFields.map((field, index) => (
-            <div key={field.id}>
-              {index > 0 && <hr className="my-4 border-slate-200" />}
-              <div className="flex flex-col sm:flex-row sm:items-center gap-4 mb-4">
-                <div className="w-full">
+      {/* Summary Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+        <div className="bg-blue-50 p-4 rounded-lg">
+          <h3 className="text-sm font-medium text-blue-600">Hard Costs</h3>
+          <p className="text-2xl font-bold text-blue-800">${calculateTotalHardCosts().toLocaleString()}</p>
+        </div>
+        <div className="bg-green-50 p-4 rounded-lg">
+          <h3 className="text-sm font-medium text-green-600">Soft Costs</h3>
+          <p className="text-2xl font-bold text-green-800">${calculateTotalSoftCosts().toLocaleString()}</p>
+        </div>
+        <div className="bg-red-50 p-4 rounded-lg">
+          <h3 className="text-sm font-medium text-red-600">Lost Revenue</h3>
+          <p className="text-2xl font-bold text-red-800">${calculateTotalLostRevenue().toLocaleString()}</p>
+        </div>
+        <div className="bg-slate-50 p-4 rounded-lg">
+          <h3 className="text-sm font-medium text-slate-600">Total Rehab</h3>
+          <p className="text-2xl font-bold text-slate-800">${calculateTotalRehab().toLocaleString()}</p>
+        </div>
+      </div>
+
+      {/* All Cost Types in One Row - Compact Layout */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
+        
+        {/* Hard Costs Column */}
+        <div className="bg-blue-50 p-3 sm:p-4 rounded-lg">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-sm sm:text-lg font-medium text-blue-800">Hard Costs</h3>
+            <span className="text-xl sm:text-2xl font-bold text-blue-800">${calculateTotalHardCosts().toLocaleString()}</span>
+          </div>
+          
+          {hardCostFields.length === 0 ? (
+            <div className="text-center py-4">
+              <button
+                type="button"
+                onClick={() => appendHardCost({ category: '', amount: 0 })}
+                className="text-blue-600 hover:text-blue-800 font-medium text-sm"
+              >
+                + Add Hard Cost
+              </button>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {hardCostFields.map((field, index) => (
+                <div key={field.id} className="flex flex-col gap-2">
                   <input
                     {...register(`rehab.hardCosts.${index}.category`, {
-                      required: 'Hard cost category is required'
+                      required: 'Category is required'
                     })}
-                    placeholder="Category"
-                    className={`w-full px-3 py-2 border rounded-md shadow-sm ${
+                    placeholder="e.g., Flooring, Kitchen"
+                    className={`w-full px-2 py-1 text-xs sm:text-sm border rounded ${
                       errors.rehab?.hardCosts?.[index]?.category ? 'border-red-500' : 'border-slate-300'
                     }`}
                   />
-                  {errors.rehab?.hardCosts?.[index]?.category && (
-                    <p className="mt-1 text-sm text-red-600">{errors.rehab?.hardCosts?.[index]?.category?.message}</p>
-                  )}
+                  <div className="flex items-center gap-1">
+                    <input
+                      type="number"
+                      {...register(`rehab.hardCosts.${index}.amount`, {
+                        valueAsNumber: true,
+                        required: 'Amount is required',
+                        min: { value: 0.01, message: 'Must be > 0' }
+                      })}
+                      placeholder="Amount"
+                      className={`flex-1 px-2 py-1 text-xs sm:text-sm border rounded ${
+                        errors.rehab?.hardCosts?.[index]?.amount ? 'border-red-500' : 'border-slate-300'
+                      }`}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => removeHardCost(index)}
+                      className="p-1 rounded hover:bg-red-100"
+                      aria-label="Remove"
+                    >
+                      <Trash2 className="w-3 h-3 text-red-600" />
+                    </button>
+                  </div>
                 </div>
-                <div className="w-full">
-                  <input
-                    type="number"
-                    {...register(`rehab.hardCosts.${index}.amount`, {
-                      valueAsNumber: true,
-                      required: 'Hard cost amount is required',
-                      min: { value: 0.01, message: 'Amount must be greater than 0' }
-                    })}
-                    placeholder="Amount"
-                    className={`w-full px-3 py-2 border rounded-md shadow-sm ${
-                      errors.rehab?.hardCosts?.[index]?.amount ? 'border-red-500' : 'border-slate-300'
-                    }`}
-                  />
-                  {errors.rehab?.hardCosts?.[index]?.amount && (
-                    <p className="mt-1 text-sm text-red-600">{errors.rehab?.hardCosts?.[index]?.amount?.message}</p>
-                  )}
-                </div>
-                <button
-                  type="button"
-                  onClick={() => removeHardCost(index)}
-                  className="p-2 rounded-md hover:bg-red-100 self-start sm:self-center"
-                  aria-label="Remove Hard Cost"
-                >
-                  <Trash2 className="w-5 h-5 text-red-600" />
-                </button>
-              </div>
+              ))}
+              <button
+                type="button"
+                onClick={() => appendHardCost({ category: '', amount: 0 })}
+                className="text-blue-600 hover:text-blue-800 font-medium text-sm"
+              >
+                + Add Hard Cost
+              </button>
             </div>
-          ))}
-          <button
-            type="button"
-            onClick={() => appendHardCost({ category: '', amount: 0 })}
-            className="text-rose-600 hover:text-rose-800 font-semibold"
-          >
-            + Add Hard Cost
-          </button>
+          )}
         </div>
-      )}
 
-      {activeRehabTab === 'softCosts' && (
-        <div className="space-y-4 pt-4">
-          {softCostFields.map((field, index) => (
-            <div key={field.id}>
-              {index > 0 && <hr className="my-4 border-slate-200" />}
-              <div className="flex flex-col sm:flex-row sm:items-center gap-4 mb-4">
-                <div className="w-full">
+        {/* Soft Costs Column */}
+        <div className="bg-green-50 p-3 sm:p-4 rounded-lg">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-sm sm:text-lg font-medium text-green-800">Soft Costs</h3>
+            <span className="text-xl sm:text-2xl font-bold text-green-800">${calculateTotalSoftCosts().toLocaleString()}</span>
+          </div>
+          
+          {softCostFields.length === 0 ? (
+            <div className="text-center py-4">
+              <button
+                type="button"
+                onClick={() => appendSoftCost({ category: '', amount: 0 })}
+                className="text-green-600 hover:text-green-800 font-medium text-sm"
+              >
+                + Add Soft Cost
+              </button>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {softCostFields.map((field, index) => (
+                <div key={field.id} className="flex flex-col gap-2">
                   <input
                     {...register(`rehab.softCosts.${index}.category`, {
-                      required: 'Soft cost category is required'
+                      required: 'Category is required'
                     })}
-                    placeholder="Category"
-                    className={`w-full px-3 py-2 border rounded-md shadow-sm ${
+                    placeholder="e.g., Permits, Architecture"
+                    className={`w-full px-2 py-1 text-xs sm:text-sm border rounded ${
                       errors.rehab?.softCosts?.[index]?.category ? 'border-red-500' : 'border-slate-300'
                     }`}
                   />
-                  {errors.rehab?.softCosts?.[index]?.category && (
-                    <p className="mt-1 text-sm text-red-600">{errors.rehab?.softCosts?.[index]?.category?.message}</p>
-                  )}
+                  <div className="flex items-center gap-1">
+                    <input
+                      type="number"
+                      {...register(`rehab.softCosts.${index}.amount`, {
+                        valueAsNumber: true,
+                        required: 'Amount is required',
+                        min: { value: 0.01, message: 'Must be > 0' }
+                      })}
+                      placeholder="Amount"
+                      className={`flex-1 px-2 py-1 text-xs sm:text-sm border rounded ${
+                        errors.rehab?.softCosts?.[index]?.amount ? 'border-red-500' : 'border-slate-300'
+                      }`}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => removeSoftCost(index)}
+                      className="p-1 rounded hover:bg-red-100"
+                      aria-label="Remove"
+                    >
+                      <Trash2 className="w-3 h-3 text-red-600" />
+                    </button>
+                  </div>
                 </div>
-                <div className="w-full">
-                  <input
-                    type="number"
-                    {...register(`rehab.softCosts.${index}.amount`, {
-                      valueAsNumber: true,
-                      required: 'Soft cost amount is required',
-                      min: { value: 0.01, message: 'Amount must be greater than 0' }
-                    })}
-                    placeholder="Amount"
-                    className={`w-full px-3 py-2 border rounded-md shadow-sm ${
-                      errors.rehab?.softCosts?.[index]?.amount ? 'border-red-500' : 'border-slate-300'
-                    }`}
-                  />
-                  {errors.rehab?.softCosts?.[index]?.amount && (
-                    <p className="mt-1 text-sm text-red-600">{errors.rehab?.softCosts?.[index]?.amount?.message}</p>
-                  )}
-                </div>
-                <button
-                  type="button"
-                  onClick={() => removeSoftCost(index)}
-                  className="p-2 rounded-md hover:bg-red-100 self-start sm:self-center"
-                  aria-label="Remove Soft Cost"
-                >
-                  <Trash2 className="w-5 h-5 text-red-600" />
-                </button>
-              </div>
+              ))}
+              <button
+                type="button"
+                onClick={() => appendSoftCost({ category: '', amount: 0 })}
+                className="text-green-600 hover:text-green-800 font-medium text-sm"
+              >
+                + Add Soft Cost
+              </button>
             </div>
-          ))}
-          <button
-            type="button"
-            onClick={() => appendSoftCost({ category: '', amount: 0 })}
-            className="text-rose-600 hover:text-rose-800 font-semibold"
-          >
-            + Add Soft Cost
-          </button>
+          )}
         </div>
-      )}
 
-      <div className="mt-6 pt-4 border-t-2 space-y-2">
-        <div className="flex justify-between items-center">
-          <p className="text-sm font-medium text-slate-700">Total Hard Costs:</p>
-          <p className="text-lg font-semibold text-slate-800">${calculateTotalHardCosts().toLocaleString()}</p>
-        </div>
-        <div className="flex justify-between items-center">
-          <p className="text-sm font-medium text-slate-700">Total Soft Costs:</p>
-          <p className="text-lg font-semibold text-slate-800">${calculateTotalSoftCosts().toLocaleString()}</p>
-        </div>
-        <div className="flex justify-between items-center pt-2 border-t">
-          <p className="text-base font-bold text-slate-800">Total Development/Rehab Costs:</p>
-          <p className="text-xl font-bold text-slate-900">${calculateTotalRehabCosts().toLocaleString()}</p>
+        {/* Lost Revenue/Costs Column */}
+        <div className="bg-red-50 p-3 sm:p-4 rounded-lg">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-sm sm:text-lg font-medium text-red-800">Lost Revenue</h3>
+            <span className="text-xl sm:text-2xl font-bold text-red-800">${calculateTotalLostRevenue().toLocaleString()}</span>
+          </div>
+          
+          {/* Navigation Controls for Lost Revenue */}
+          {holdPeriod > 2 && (
+            <div className="flex items-center justify-center gap-2 mb-3">
+              <button
+                type="button"
+                onClick={() => setCurrentYearPage(Math.max(0, currentYearPage - 1))}
+                disabled={currentYearPage === 0}
+                className={`p-1 rounded transition-colors ${
+                  currentYearPage === 0 
+                    ? 'text-slate-300 cursor-not-allowed' 
+                    : 'text-slate-600 hover:text-slate-800 hover:bg-slate-100'
+                }`}
+                aria-label="Previous years"
+              >
+                <ChevronLeft className="w-3 h-3" />
+              </button>
+              
+              <span className="text-xs font-medium text-slate-700 px-2">
+                Y{getCurrentPageRange()}/{holdPeriod}
+              </span>
+              
+              <button
+                type="button"
+                onClick={() => setCurrentYearPage(Math.min(getTotalPages() - 1, currentYearPage + 1))}
+                disabled={currentYearPage >= getTotalPages() - 1}
+                className={`p-1 rounded transition-colors ${
+                  currentYearPage >= getTotalPages() - 1
+                    ? 'text-slate-300 cursor-not-allowed' 
+                    : 'text-slate-600 hover:text-slate-800 hover:bg-slate-100'
+                }`}
+                aria-label="Next years"
+              >
+                <ChevronRight className="w-3 h-3" />
+              </button>
+            </div>
+          )}
+          
+          {/* Compact Lost Revenue Table */}
+          <div className="overflow-x-auto">
+            <table className="w-full border-collapse bg-white rounded overflow-hidden text-xs">
+              <thead>
+                <tr className="bg-slate-100">
+                  <th className="border border-slate-300 px-1 py-1 text-left font-semibold text-slate-700 text-xs">
+                    Item
+                  </th>
+                  {getDisplayYears().map((yearData) => (
+                    <th key={yearData.year} className="border border-slate-300 px-1 py-1 text-center font-semibold text-slate-700 text-xs">
+                      Y{yearData.year}
+                    </th>
+                  ))}
+                  <th className="border border-slate-300 px-1 py-1 text-center font-semibold text-slate-700 w-4">
+                    
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {/* Existing Cost Rows */}
+                {(() => {
+                  const allCategories = new Set<string>();
+                  getDisplayYears().forEach(year => {
+                    year.items.forEach(item => {
+                      if (item.category) allCategories.add(item.category);
+                    });
+                  });
+
+                  return Array.from(allCategories).map((category) => (
+                    <tr key={category} className="hover:bg-slate-50">
+                      <td className="border border-slate-300 px-1 py-1">
+                        <span className="font-medium text-slate-700 text-xs">
+                          {category.length > 10 ? `${category.substring(0, 10)}...` : category}
+                        </span>
+                      </td>
+                      {getDisplayYears().map((yearData, yearIndex) => {
+                        const existingItem = yearData.items.find(item => item.category === category);
+                        const existingItemIndex = yearData.items.findIndex(item => item.category === category);
+                        
+                        return (
+                          <td key={yearData.year} className="border border-slate-300 px-1 py-1">
+                            {existingItem ? (
+                              <input
+                                type="number"
+                                {...register(`rehab.lostRevenueAndCosts.${yearIndex}.items.${existingItemIndex}.amount`, {
+                                  valueAsNumber: true,
+                                  min: { value: 0, message: 'Must be ≥ 0' }
+                                })}
+                                className="w-full px-1 py-0.5 text-xs border border-slate-200 rounded"
+                                placeholder="0"
+                              />
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const currentData = getYearlyLostRevenue();
+                                  const updatedData = [...currentData];
+                                  updatedData[yearIndex] = {
+                                    ...updatedData[yearIndex],
+                                    items: [...updatedData[yearIndex].items, { category, amount: 0 }]
+                                  };
+                                  setValue('rehab.lostRevenueAndCosts', updatedData);
+                                }}
+                                className="w-full px-1 py-0.5 text-xs text-slate-400 hover:text-blue-600 rounded"
+                              >
+                                +
+                              </button>
+                            )}
+                          </td>
+                        );
+                      })}
+                      <td className="border border-slate-300 px-1 py-1 text-center">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const currentData = getYearlyLostRevenue();
+                            const updatedData = currentData.map(yearData => ({
+                              ...yearData,
+                              items: yearData.items.filter(item => item.category !== category)
+                            }));
+                            setValue('rehab.lostRevenueAndCosts', updatedData);
+                          }}
+                          className="p-0.5 rounded hover:bg-red-100"
+                          aria-label={`Remove ${category}`}
+                        >
+                          <Trash2 className="w-2 h-2 text-red-600" />
+                        </button>
+                      </td>
+                    </tr>
+                  ));
+                })()}
+
+                {/* Add New Category Row */}
+                <tr className="bg-slate-50">
+                  <td className="border border-slate-300 px-1 py-1">
+                    <input
+                      type="text"
+                      placeholder="New item..."
+                      className="w-full px-1 py-0.5 text-xs border border-slate-200 rounded"
+                      onKeyPress={(e) => {
+                        if (e.key === 'Enter') {
+                          const input = e.target as HTMLInputElement;
+                          const newCategory = input.value.trim();
+                          if (newCategory) {
+                            const currentData = getYearlyLostRevenue();
+                            const updatedData = [...currentData];
+                            updatedData[0] = {
+                              ...updatedData[0],
+                              items: [...updatedData[0].items, { category: newCategory, amount: 0 }]
+                            };
+                            setValue('rehab.lostRevenueAndCosts', updatedData);
+                            input.value = '';
+                          }
+                        }
+                      }}
+                    />
+                  </td>
+                  {getDisplayYears().map((yearData) => (
+                    <td key={yearData.year} className="border border-slate-300 px-1 py-1 text-center text-slate-400">
+                      <span className="text-xs">-</span>
+                    </td>
+                  ))}
+                  <td className="border border-slate-300 px-1 py-1">
+                    
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          
+          {holdPeriod > 2 && (
+            <div className="mt-1 text-xs text-slate-600 text-center">
+              📊 Total includes all {holdPeriod} years
+            </div>
+          )}
         </div>
       </div>
-
-      <hr className="my-6" />
-
-      {/* Lost Revenue/Costs Section - Spreadsheet View */}
-      <div className="bg-slate-50 p-2 sm:p-4 rounded-lg">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-3 sm:mb-4 gap-2">
-          <h3 className="text-base sm:text-lg font-medium text-slate-800">Lost Revenue/Costs During Rehab</h3>
           
           {/* Navigation Controls */}
           {holdPeriod > 2 && (
@@ -536,39 +702,14 @@ export default function RehabStep() {
               </tbody>
             </table>
           </div>
-        </div>
-
-        {/* Additional info for paginated view */}
-        {holdPeriod > 2 && (
-          <div className="mt-2 p-2 bg-blue-50 rounded text-xs text-slate-600">
-            <p className="font-medium">
-              📊 <span className="hidden sm:inline">Viewing years {getCurrentPageRange()} • Total column shows all {holdPeriod} years combined</span>
-              <span className="sm:hidden">Y{getCurrentPageRange()} shown • Total = all {holdPeriod} years</span>
-            </p>
-          </div>
-        )}
-
-        <div className="mt-3 sm:mt-4 text-xs text-slate-600">
-          <p className="font-medium mb-1 sm:mb-2">
-            <span className="hidden sm:inline">Instructions:</span>
-            <span className="sm:hidden">How to use:</span>
-          </p>
-          <ul className="list-disc list-inside space-y-0.5 sm:space-y-1">
-            <li className="leading-tight">Type category name and press Enter to add row</li>
-            <li className="leading-tight">
-              <span className="hidden sm:inline">Click "+ Add" in any cell to add that category to that year</span>
-              <span className="sm:hidden">Click "+" to add category to year</span>
-            </li>
-            <li className="leading-tight">Use trash icon to remove category rows</li>
-            {holdPeriod > 2 && (
-              <li className="leading-tight">
-                <span className="hidden sm:inline">Use ← → arrows to navigate between year groups (showing 2 years at a time)</span>
-                <span className="sm:hidden">Use ← → to see other years (2 at a time)</span>
-              </li>
-            )}
-          </ul>
+          
+          {holdPeriod > 2 && (
+            <div className="mt-1 text-xs text-slate-600 text-center">
+              📊 Total includes all {holdPeriod} years
+            </div>
+          )}
         </div>
       </div>
-    </>
+    </div>
   );
 }
