@@ -1,19 +1,57 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useFormContext } from 'react-hook-form';
 import { PropertyData } from '../../types/property';
-import { ChevronDown, ChevronUp, AlertTriangle } from 'lucide-react';
+import { ChevronDown, ChevronUp, AlertTriangle, Check, X } from 'lucide-react';
 import { XAxis, YAxis, ResponsiveContainer, LineChart, Line, CartesianGrid, Tooltip, Legend } from 'recharts';
 import { generateChartData } from '../../utils/calculations';
 
-export default function SummaryStep() {
-  const { watch, register } = useFormContext<PropertyData>();
+interface SummaryStepProps {
+  touchedSections: Set<number>;
+}
+
+export default function SummaryStep({ touchedSections }: SummaryStepProps) {
+  const { watch, register, setValue } = useFormContext<PropertyData>();
   const [viewMode, setViewMode] = useState<'monthly' | 'annual'>('monthly');
   const [isProjectionsCollapsed, setIsProjectionsCollapsed] = useState<boolean>(false);
   const [isCashFlowCollapsed, setIsCashFlowCollapsed] = useState<boolean>(false);
   const [isInvestmentProjectionsCollapsed, setIsInvestmentProjectionsCollapsed] = useState<boolean>(false);
   const [activeTab, setActiveTab] = useState<'overview' | 'simulation'>('overview');
   
+  // Investment Projections field toggles
+  const [showRentGrowthSlider, setShowRentGrowthSlider] = useState<boolean>(false);
+  const [showExpenseGrowthSlider, setShowExpenseGrowthSlider] = useState<boolean>(false);
+  const [showAppreciationSlider, setShowAppreciationSlider] = useState<boolean>(false);
+  const [showHoldPeriodSlider, setShowHoldPeriodSlider] = useState<boolean>(false);
+  const [showLeaseSlider, setShowLeaseSlider] = useState<boolean>(false);
+  const [showVacancySlider, setShowVacancySlider] = useState<boolean>(false);
+
+  // Function to collapse all sliders except the specified one
+  const collapseAllSlidersExcept = (activeSlider: string) => {
+    if (activeSlider !== 'rentGrowth') setShowRentGrowthSlider(false);
+    if (activeSlider !== 'expenseGrowth') setShowExpenseGrowthSlider(false);
+    if (activeSlider !== 'appreciation') setShowAppreciationSlider(false);
+    if (activeSlider !== 'holdPeriod') setShowHoldPeriodSlider(false);
+    if (activeSlider !== 'lease') setShowLeaseSlider(false);
+    if (activeSlider !== 'vacancy') setShowVacancySlider(false);
+  };
+  
   const formData = watch();
+
+  // Set projectedRentGrowth to default to incomeRentGrowth value when Summary loads
+  // Set appreciationRate to default to incomeAppreciationRate value when Summary loads
+  // Set analysisAverageLeaseLength to default to averageLeaseLength value when Summary loads
+  useEffect(() => {
+    if (formData.incomeRentGrowth !== undefined && formData.projectedRentGrowth === undefined) {
+      setValue('projectedRentGrowth', formData.incomeRentGrowth);
+    }
+    if (formData.incomeAppreciationRate !== undefined && formData.appreciationRate === undefined) {
+      setValue('appreciationRate', formData.incomeAppreciationRate);
+    }
+    if (formData.averageLeaseLength !== undefined && formData.analysisAverageLeaseLength === undefined) {
+      setValue('analysisAverageLeaseLength', formData.averageLeaseLength);
+    }
+  }, [formData.incomeRentGrowth, formData.projectedRentGrowth, formData.incomeAppreciationRate, formData.appreciationRate, 
+      formData.averageLeaseLength, formData.analysisAverageLeaseLength, setValue]);
 
   // --- Calculation Functions ---
 
@@ -73,7 +111,9 @@ export default function SummaryStep() {
   const calculateTotalLostRevenue = () => {
       const { rehab } = formData;
       if (!rehab || !rehab.lostRevenueAndCosts) return 0;
-      return rehab.lostRevenueAndCosts.reduce((acc, item) => acc + (item.amount || 0), 0);
+      return rehab.lostRevenueAndCosts.reduce((acc, yearData) => 
+        acc + yearData.items.reduce((yearAcc, item) => yearAcc + (item.amount || 0), 0), 0
+      );
   };
 
   const calculateAcquisitionCost = () => {
@@ -186,7 +226,7 @@ export default function SummaryStep() {
   };
 
   const calculateYearlyCashFlows = () => {
-    const holdPeriod = formData.holdPeriod || 5;
+    const holdPeriod = formData.analysisHoldPeriod || 5;
     const rentGrowthRate = (formData.projectedRentGrowth || 2) / 100;
     const expenseGrowthRate = (formData.expenseGrowthRate || 3) / 100;
     const baseMonthlyIncome = calculateTotalMonthlyIncome();
@@ -228,7 +268,7 @@ export default function SummaryStep() {
     const principal = calculateLoanAmount();
     const monthlyRate = (formData.finance?.interestRate || 0) / 100 / 12;
     const totalPayments = (formData.finance?.loanTerm || 30) * 12;
-    const holdPeriod = formData.holdPeriod || 5;
+    const holdPeriod = formData.analysisHoldPeriod || 5;
     
     if (principal <= 0 || monthlyRate <= 0 || totalPayments <= 0) return [];
     
@@ -274,7 +314,7 @@ export default function SummaryStep() {
   const calculatePropertyValueByYear = () => {
     const currentValue = formData.purchasePrice || 0;
     const appreciationRate = (formData.appreciationRate || 2) / 100;
-    const holdPeriod = formData.holdPeriod || 5;
+    const holdPeriod = formData.analysisHoldPeriod || 5;
     
     const yearlyValues = [];
     
@@ -323,7 +363,7 @@ export default function SummaryStep() {
   const averageAnnualCashFlow = calculateAverageCashFlow();
 
   // Prepare data for cash flow line chart using frontend calculation
-  const holdPeriod = formData.holdPeriod || 5;
+  const holdPeriod = formData.analysisHoldPeriod || 5;
   const frontendChartData = generateChartData(formData, holdPeriod);
   
   // Use frontend data if available, otherwise fallback to existing calculation
@@ -450,27 +490,27 @@ export default function SummaryStep() {
   };
 
   const validateRehab = () => {
-    // Rehab is only required if there are rehab costs entered
-    if (!formData.rehab) return true; // Optional section
+    // If rehab work is not required, this step is always valid
+    if (!formData.hasRehabWork) return true;
     
-    const hasRehabCosts = (
-      (formData.rehab.hardCosts && formData.rehab.hardCosts.length > 0) ||
-      (formData.rehab.softCosts && formData.rehab.softCosts.length > 0) ||
-      (formData.rehab.lostRevenueAndCosts && formData.rehab.lostRevenueAndCosts.length > 0)
-    );
-    
-    if (hasRehabCosts) {
-      // If rehab costs exist, validate they have proper amounts
-      const allCosts = [
-        ...(formData.rehab.hardCosts || []),
-        ...(formData.rehab.softCosts || []),
-        ...(formData.rehab.lostRevenueAndCosts || [])
-      ];
-      
-      return allCosts.every(cost => cost.amount && cost.amount > 0);
+    // If rehab work is required, must have at least one hard cost line item
+    if (!formData.rehab || !formData.rehab.hardCosts || formData.rehab.hardCosts.length === 0) {
+      return false;
     }
     
-    return true;
+    // Check that at least one hard cost has both category and amount > 0
+    const hasValidHardCost = formData.rehab.hardCosts.some(cost => 
+      cost.category && cost.category.trim() !== '' && cost.amount && cost.amount > 0
+    );
+    
+    return hasValidHardCost;
+  };
+
+  const getValidationErrorMessage = (section: string) => {
+    if (section === 'Rehab/Development' && formData.hasRehabWork) {
+      return 'Please enter rehab and development (hard cost) estimate';
+    }
+    return null;
   };
 
   // Dynamic validation array that includes conditional requirements
@@ -482,14 +522,8 @@ export default function SummaryStep() {
       { section: 'Expenses', isValid: validateExpenses(), step: 4 },
     ];
 
-    // Add conditional validation for rehab if there are rehab costs
-    const hasRehabData = formData.rehab && (
-      (formData.rehab.hardCosts && formData.rehab.hardCosts.length > 0) ||
-      (formData.rehab.softCosts && formData.rehab.softCosts.length > 0) ||
-      (formData.rehab.lostRevenueAndCosts && formData.rehab.lostRevenueAndCosts.length > 0)
-    );
-
-    if (hasRehabData) {
+    // Add rehab validation if rehab work is required
+    if (formData.hasRehabWork) {
       validations.push({
         section: 'Rehab/Development',
         isValid: validateRehab(),
@@ -508,17 +542,23 @@ export default function SummaryStep() {
 
   // Always show all main sections for status navigation
   const allSections = [
-    { section: 'Property Information', isValid: validateProperty(), step: 1 },
-    { section: 'Financing', isValid: validateFinancing(), step: 2 },
-    { section: 'Income', isValid: validateIncome(), step: 3 },
-    { section: 'Expenses', isValid: validateExpenses(), step: 4 },
-    ...(formData.rehab && (
-      (formData.rehab.hardCosts && formData.rehab.hardCosts.length > 0) ||
-      (formData.rehab.softCosts && formData.rehab.softCosts.length > 0) ||
-      (formData.rehab.lostRevenueAndCosts && formData.rehab.lostRevenueAndCosts.length > 0)
-    ) ? [{ section: 'Development/Rehab', isValid: validateRehab(), step: 5 }] : []),
-    { section: 'Summary', isValid: true, step: 6 }, // Summary is always valid since we're on it
+    { section: 'Property Information', isValid: validateProperty(), step: 1, isTouched: touchedSections.has(1) },
+    { section: 'Financing', isValid: validateFinancing(), step: 2, isTouched: touchedSections.has(2) },
+    { section: 'Income', isValid: validateIncome(), step: 3, isTouched: touchedSections.has(3) },
+    { section: 'Expenses', isValid: validateExpenses(), step: 4, isTouched: touchedSections.has(4) },
+    ...(formData.hasRehabWork ? [{ section: 'Development/Rehab', isValid: validateRehab(), step: 5, isTouched: touchedSections.has(5) }] : []),
+    { section: 'Summary', isValid: true, step: 6, isTouched: true }, // Summary is always valid since we're on it
   ];
+
+  const getValidationMessage = (section: { section: string; isValid: boolean; step: number; isTouched: boolean }) => {
+    if (!section.isTouched) {
+      return 'Please complete this section to see analysis';
+    } else if (!section.isValid) {
+      const specificMessage = getValidationErrorMessage(section.section);
+      return specificMessage || `Please complete ${section.section.toLowerCase()} requirements`;
+    }
+    return null;
+  };
 
   return (
     <>
@@ -526,77 +566,67 @@ export default function SummaryStep() {
         <h2 className="text-2xl font-bold text-slate-800">Step 6: Summary</h2>
         <p className="text-slate-500">Review the complete analysis of your property below.</p>
         
-        {/* Section Status Navigation - Desktop & iPad only */}
-        <div className="hidden md:flex justify-center mt-4 flex-wrap gap-2">
-          {allSections.map((validation, index) => (
-            <div
-              key={index}
-              className={`px-3 py-1 rounded-full text-sm font-medium ${
-                validation.isValid
-                  ? 'bg-green-100 text-green-700'
-                  : 'bg-red-100 text-red-700'
-              }`}
-            >
-              <span className="flex items-center gap-1">
-                {validation.isValid ? '✓' : '✗'} {validation.section}
-              </span>
+        {/* Validation Messages */}
+        {hasIncompleteSections && (
+          <div className="mt-4">
+            <div className="p-3 rounded-md border bg-blue-50 border-blue-200 text-blue-700">
+              <div className="text-center">
+                <p className="text-sm font-medium mb-3">Complete all sections to view analysis</p>
+                
+                {/* Circular Checkbox Legend */}
+                <div className="flex justify-center items-center gap-4 md:gap-6 text-xs">
+                  <div className="flex items-center gap-2">
+                    <div className="w-4 h-4 min-w-4 min-h-4 rounded-full bg-gray-300 flex items-center justify-center flex-shrink-0">
+                    </div>
+                    <span className="text-gray-600">Not Started</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="w-4 h-4 min-w-4 min-h-4 rounded-full bg-green-500 flex items-center justify-center flex-shrink-0">
+                      <Check className="w-2.5 h-2.5 text-white" />
+                    </div>
+                    <span className="text-green-700">Complete</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="w-4 h-4 min-w-4 min-h-4 rounded-full bg-red-500 flex items-center justify-center flex-shrink-0">
+                      <div className="w-1.5 h-1.5 bg-white rounded-full" />
+                    </div>
+                    <span className="text-red-700">Incomplete</span>
+                  </div>
+                </div>
+              </div>
             </div>
-          ))}
+          </div>
+        )}
+      </div>
+
+      {/* Tab Navigation */}
+      <div className="mb-6">
+        <div className="flex border-b">
+          <button
+            type="button"
+            onClick={() => setActiveTab('overview')}
+            className={`px-4 py-2 -mb-px border-b-2 ${activeTab === 'overview' ? 'border-rose-500 text-rose-600' : 'border-transparent text-slate-500'}`}
+          >
+            <div className="text-left">
+              <div className="font-medium">Overview</div>
+              <div className="hidden md:block text-xs text-slate-400 mt-0.5">Analysis & Cash Flow</div>
+            </div>
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('simulation')}
+            className={`px-4 py-2 -mb-px border-b-2 ${activeTab === 'simulation' ? 'border-rose-500 text-rose-600' : 'border-transparent text-slate-500'}`}
+          >
+            <div className="text-left">
+              <div className="font-medium">Simulation</div>
+              <div className="hidden md:block text-xs text-slate-400 mt-0.5">Projections & Exit Analysis</div>
+            </div>
+          </button>
         </div>
       </div>
 
-      {/* Show only warning when sections are incomplete */}
-      {hasIncompleteSections ? (
-        <div className="mb-6 p-8 bg-gray-50 border border-gray-200 rounded-lg text-center">
-          <AlertTriangle className="w-12 h-12 text-amber-500 mx-auto mb-4" />
-          <h3 className="text-xl font-semibold text-gray-800 mb-2">
-            Analysis Unavailable
-          </h3>
-          <p className="text-gray-600 mb-4">
-            Complete the following required sections to view detailed property analysis, cash flow projections, and investment metrics:
-          </p>
-          <div className="space-y-2 mb-4">
-            {incompleteSections.map((section, index) => (
-              <div key={index} className="flex items-center justify-center gap-2 text-gray-700">
-                <span className="font-medium">{section.section}</span>
-                <span className="text-sm text-gray-500">(Step {section.step})</span>
-              </div>
-            ))}
-          </div>
-          <p className="text-sm text-gray-500">
-            Your progress is automatically saved as you fill out each section.
-          </p>
-        </div>
-      ) : (
-        <>
-          {/* Tab Navigation - Only show when analysis is available */}
-          <div className="mb-6">
-            <div className="flex border-b">
-              <button
-                type="button"
-                onClick={() => setActiveTab('overview')}
-                className={`px-4 py-2 -mb-px border-b-2 ${activeTab === 'overview' ? 'border-rose-500 text-rose-600' : 'border-transparent text-slate-500'}`}
-              >
-                <div className="text-left">
-                  <div className="font-medium">Overview</div>
-                  <div className="hidden md:block text-xs text-slate-400 mt-0.5">Analysis & Cash Flow</div>
-                </div>
-              </button>
-              <button
-                type="button"
-                onClick={() => setActiveTab('simulation')}
-                className={`px-4 py-2 -mb-px border-b-2 ${activeTab === 'simulation' ? 'border-rose-500 text-rose-600' : 'border-transparent text-slate-500'}`}
-              >
-                <div className="text-left">
-                  <div className="font-medium">Simulation</div>
-                  <div className="hidden md:block text-xs text-slate-400 mt-0.5">Projections & Exit Analysis</div>
-                </div>
-              </button>
-            </div>
-          </div>
-
-          {/* Overview Tab Content */}
-          {activeTab === 'overview' && (
+      {/* Overview Tab Content */}
+      {activeTab === 'overview' && (
         <>
           {/* Cash Flow Line Chart */}
           <div className="mb-6 bg-white p-3 sm:p-6 rounded-lg shadow-md">
@@ -888,7 +918,7 @@ export default function SummaryStep() {
           
           <div className="mt-4 p-3 bg-blue-50 rounded-lg">
             <p className="text-sm text-slate-600">
-              <strong>Projection Details:</strong> Based on {formData.projectedRentGrowth || 2}% annual rent growth and {formData.expenseGrowthRate || 3}% annual expense growth over {formData.holdPeriod || 5} years. 
+              <strong>Projection Details:</strong> Based on {formData.projectedRentGrowth || 2}% annual rent growth and {formData.expenseGrowthRate || 3}% annual expense growth over {formData.analysisHoldPeriod || 5} years. 
               Both income and expenses grow annually with compound growth.
             </p>
           </div>
@@ -929,10 +959,193 @@ export default function SummaryStep() {
                 <p className="text-xs text-blue-700 font-medium">💡 Tip: Use the sliders below to adjust projection values and see how they impact your investment returns</p>
               </div>
               
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="grid grid-cols-2 md:grid-cols-2 gap-3 md:gap-6">
+                {/* Rent Growth */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Rent Growth: <span className="font-bold text-blue-600">{watch('projectedRentGrowth') || 2}%</span> per year
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (showRentGrowthSlider) {
+                        setShowRentGrowthSlider(false);
+                      } else {
+                        collapseAllSlidersExcept('rentGrowth');
+                        setShowRentGrowthSlider(true);
+                      }
+                    }}
+                    className={`w-full h-16 md:h-20 p-2 md:p-3 border rounded-lg transition-colors flex items-center justify-between ${
+                      showRentGrowthSlider 
+                        ? 'bg-blue-100 border-blue-500 shadow-md' 
+                        : 'bg-white border-blue-300 hover:bg-blue-50'
+                    }`}
+                  >
+                    <span className="text-xs md:text-sm font-medium text-slate-700 text-left">
+                      <span className="block">Rent Growth:</span>
+                      <span className="font-bold text-blue-600">{watch('projectedRentGrowth') || 2}%</span> per year
+                    </span>
+                    {showRentGrowthSlider ? (
+                      <ChevronUp className="w-3 h-3 md:w-4 md:h-4 text-slate-600 flex-shrink-0" />
+                    ) : (
+                      <ChevronDown className="w-3 h-3 md:w-4 md:h-4 text-slate-600 flex-shrink-0" />
+                    )}
+                  </button>
+                </div>
+                
+                {/* Expense Growth Rate */}
+                <div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (showExpenseGrowthSlider) {
+                        setShowExpenseGrowthSlider(false);
+                      } else {
+                        collapseAllSlidersExcept('expenseGrowth');
+                        setShowExpenseGrowthSlider(true);
+                      }
+                    }}
+                    className={`w-full h-16 md:h-20 p-2 md:p-3 border rounded-lg transition-colors flex items-center justify-between ${
+                      showExpenseGrowthSlider 
+                        ? 'bg-blue-100 border-blue-500 shadow-md' 
+                        : 'bg-white border-blue-300 hover:bg-blue-50'
+                    }`}
+                  >
+                    <span className="text-xs md:text-sm font-medium text-slate-700 text-left">
+                      <span className="block">Expense Growth:</span>
+                      <span className="font-bold text-blue-600">{watch('expenseGrowthRate') || 3}%</span> per year
+                    </span>
+                    {showExpenseGrowthSlider ? (
+                      <ChevronUp className="w-3 h-3 md:w-4 md:h-4 text-slate-600 flex-shrink-0" />
+                    ) : (
+                      <ChevronDown className="w-3 h-3 md:w-4 md:h-4 text-slate-600 flex-shrink-0" />
+                    )}
+                  </button>
+                </div>
+                
+                {/* Appreciation Rate */}
+                <div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (showAppreciationSlider) {
+                        setShowAppreciationSlider(false);
+                      } else {
+                        collapseAllSlidersExcept('appreciation');
+                        setShowAppreciationSlider(true);
+                      }
+                    }}
+                    className={`w-full h-16 md:h-20 p-2 md:p-3 border rounded-lg transition-colors flex items-center justify-between ${
+                      showAppreciationSlider 
+                        ? 'bg-blue-100 border-blue-500 shadow-md' 
+                        : 'bg-white border-blue-300 hover:bg-blue-50'
+                    }`}
+                  >
+                    <span className="text-xs md:text-sm font-medium text-slate-700 text-left">
+                      <span className="block">Appreciation:</span>
+                      <span className="font-bold text-blue-600">{watch('appreciationRate') || 2}%</span> per year
+                    </span>
+                    {showAppreciationSlider ? (
+                      <ChevronUp className="w-3 h-3 md:w-4 md:h-4 text-slate-600 flex-shrink-0" />
+                    ) : (
+                      <ChevronDown className="w-3 h-3 md:w-4 md:h-4 text-slate-600 flex-shrink-0" />
+                    )}
+                  </button>
+                </div>
+                
+                {/* Hold Period */}
+                <div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (showHoldPeriodSlider) {
+                        setShowHoldPeriodSlider(false);
+                      } else {
+                        collapseAllSlidersExcept('holdPeriod');
+                        setShowHoldPeriodSlider(true);
+                      }
+                    }}
+                    className={`w-full h-16 md:h-20 p-2 md:p-3 border rounded-lg transition-colors flex items-center justify-between ${
+                      showHoldPeriodSlider 
+                        ? 'bg-blue-100 border-blue-500 shadow-md' 
+                        : 'bg-white border-blue-300 hover:bg-blue-50'
+                    }`}
+                  >
+                    <span className="text-xs md:text-sm font-medium text-slate-700 text-left">
+                      <span className="block">Hold Period:</span>
+                      <span className="font-bold text-blue-600">{watch('analysisHoldPeriod') || 5}</span> years
+                    </span>
+                    {showHoldPeriodSlider ? (
+                      <ChevronUp className="w-3 h-3 md:w-4 md:h-4 text-slate-600 flex-shrink-0" />
+                    ) : (
+                      <ChevronDown className="w-3 h-3 md:w-4 md:h-4 text-slate-600 flex-shrink-0" />
+                    )}
+                  </button>
+                </div>
+                
+                {/* Average Lease Length */}
+                <div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (showLeaseSlider) {
+                        setShowLeaseSlider(false);
+                      } else {
+                        collapseAllSlidersExcept('lease');
+                        setShowLeaseSlider(true);
+                      }
+                    }}
+                    className={`w-full h-16 md:h-20 p-2 md:p-3 border rounded-lg transition-colors flex items-center justify-between ${
+                      showLeaseSlider 
+                        ? 'bg-blue-100 border-blue-500 shadow-md' 
+                        : 'bg-white border-blue-300 hover:bg-blue-50'
+                    }`}
+                  >
+                    <span className="text-xs md:text-sm font-medium text-slate-700 text-left">
+                      <span className="block">Lease Length:</span>
+                      <span className="font-bold text-blue-600">{watch('analysisAverageLeaseLength') || 12}</span> months
+                    </span>
+                    {showLeaseSlider ? (
+                      <ChevronUp className="w-3 h-3 md:w-4 md:h-4 text-slate-600 flex-shrink-0" />
+                    ) : (
+                      <ChevronDown className="w-3 h-3 md:w-4 md:h-4 text-slate-600 flex-shrink-0" />
+                    )}
+                  </button>
+                </div>
+                
+                {/* Vacancy Rate */}
+                <div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (showVacancySlider) {
+                        setShowVacancySlider(false);
+                      } else {
+                        collapseAllSlidersExcept('vacancy');
+                        setShowVacancySlider(true);
+                      }
+                    }}
+                    className={`w-full h-16 md:h-20 p-2 md:p-3 border rounded-lg transition-colors flex items-center justify-between ${
+                      showVacancySlider 
+                        ? 'bg-blue-100 border-blue-500 shadow-md' 
+                        : 'bg-white border-blue-300 hover:bg-blue-50'
+                    }`}
+                  >
+                    <span className="text-xs md:text-sm font-medium text-slate-700 text-left">
+                      <span className="block">Vacancy Rate:</span>
+                      <span className="font-bold text-blue-600">{watch('vacancyRate') || 5}%</span> per year
+                    </span>
+                    {showVacancySlider ? (
+                      <ChevronUp className="w-3 h-3 md:w-4 md:h-4 text-slate-600 flex-shrink-0" />
+                    ) : (
+                      <ChevronDown className="w-3 h-3 md:w-4 md:h-4 text-slate-600 flex-shrink-0" />
+                    )}
+                  </button>
+                </div>
+              </div>
+              
+              {/* Full-width expanded sliders */}
+              {showRentGrowthSlider && (
+                <div className="mt-4 p-4 bg-white border border-blue-200 rounded-lg shadow-sm">
+                  <label className="block text-sm font-medium text-slate-700 mb-3">
+                    Rent Growth Rate: <span className="font-bold text-blue-600">{watch('projectedRentGrowth') || 2}%</span> per year
                   </label>
                   <input
                     type="range"
@@ -942,16 +1155,20 @@ export default function SummaryStep() {
                     max="20"
                     step="0.5"
                     defaultValue="2"
-                    className="w-full h-2 bg-blue-200 rounded-lg appearance-none cursor-pointer slider"
+                    className="w-full h-3 bg-blue-200 rounded-lg appearance-none cursor-pointer slider"
                   />
-                  <div className="flex justify-between text-xs text-gray-500 mt-1">
+                  <div className="flex justify-between text-sm text-gray-500 mt-2">
                     <span>-10%</span>
+                    <span>0%</span>
+                    <span>10%</span>
                     <span>20%</span>
                   </div>
                 </div>
-                
-                <div>
-                  <label htmlFor="expenseGrowthRate" className="block text-sm font-medium text-slate-700 mb-2">
+              )}
+              
+              {showExpenseGrowthSlider && (
+                <div className="mt-4 p-4 bg-white border border-blue-200 rounded-lg shadow-sm">
+                  <label className="block text-sm font-medium text-slate-700 mb-3">
                     Expense Growth Rate: <span className="font-bold text-blue-600">{watch('expenseGrowthRate') || 3}%</span> per year
                   </label>
                   <input
@@ -962,17 +1179,21 @@ export default function SummaryStep() {
                     max="15"
                     step="0.5"
                     defaultValue="3"
-                    className="w-full h-2 bg-blue-200 rounded-lg appearance-none cursor-pointer slider"
+                    className="w-full h-3 bg-blue-200 rounded-lg appearance-none cursor-pointer slider"
                   />
-                  <div className="flex justify-between text-xs text-gray-500 mt-1">
+                  <div className="flex justify-between text-sm text-gray-500 mt-2">
                     <span>-5%</span>
+                    <span>5%</span>
+                    <span>10%</span>
                     <span>15%</span>
                   </div>
                 </div>
-                
-                <div>
-                  <label htmlFor="appreciationRate" className="block text-sm font-medium text-slate-700 mb-2">
-                    Appreciation Rate: <span className="font-bold text-blue-600">{watch('appreciationRate') || 2}%</span> per year
+              )}
+              
+              {showAppreciationSlider && (
+                <div className="mt-4 p-4 bg-white border border-blue-200 rounded-lg shadow-sm">
+                  <label className="block text-sm font-medium text-slate-700 mb-3">
+                    Property Appreciation Rate: <span className="font-bold text-blue-600">{watch('appreciationRate') || 2}%</span> per year
                   </label>
                   <input
                     type="range"
@@ -982,60 +1203,69 @@ export default function SummaryStep() {
                     max="15"
                     step="0.5"
                     defaultValue="2"
-                    className="w-full h-2 bg-blue-200 rounded-lg appearance-none cursor-pointer slider"
+                    className="w-full h-3 bg-blue-200 rounded-lg appearance-none cursor-pointer slider"
                   />
-                  <div className="flex justify-between text-xs text-gray-500 mt-1">
+                  <div className="flex justify-between text-sm text-gray-500 mt-2">
                     <span>-5%</span>
+                    <span>2%</span>
+                    <span>8%</span>
                     <span>15%</span>
                   </div>
                 </div>
-                
-                <div>
-                  <label htmlFor="holdPeriod" className="block text-sm font-medium text-slate-700 mb-2">
-                    Hold Period: <span className="font-bold text-blue-600">{watch('holdPeriod') || 5}</span> years
+              )}
+              
+              {showHoldPeriodSlider && (
+                <div className="mt-4 p-4 bg-white border border-blue-200 rounded-lg shadow-sm">
+                  <label className="block text-sm font-medium text-slate-700 mb-3">
+                    Investment Hold Period: <span className="font-bold text-blue-600">{watch('analysisHoldPeriod') || 5}</span> years
                   </label>
                   <input
                     type="range"
-                    id="holdPeriod"
-                    {...register('holdPeriod', { valueAsNumber: true })}
+                    id="analysisHoldPeriod"
+                    {...register('analysisHoldPeriod', { valueAsNumber: true })}
                     min="1"
                     max="50"
                     step="1"
                     defaultValue="5"
-                    className="w-full h-2 bg-blue-200 rounded-lg appearance-none cursor-pointer slider"
+                    className="w-full h-3 bg-blue-200 rounded-lg appearance-none cursor-pointer slider"
                   />
-                  <div className="flex justify-between text-xs text-gray-500 mt-1">
-                    <span>1 yr</span>
-                    <span>50 yrs</span>
+                  <div className="flex justify-between text-sm text-gray-500 mt-2">
+                    <span>1 year</span>
+                    <span>10 years</span>
+                    <span>25 years</span>
+                    <span>50 years</span>
                   </div>
                 </div>
-                
-                <div>
-                  <label htmlFor="averageLeaseLength" className="block text-sm font-medium text-slate-700 mb-2">
-                    Average Lease Length: <span className="font-bold text-blue-600">{watch('averageLeaseLength') || 12}</span> months
+              )}
+              
+              {showLeaseSlider && (
+                <div className="mt-4 p-4 bg-white border border-blue-200 rounded-lg shadow-sm">
+                  <label className="block text-sm font-medium text-slate-700 mb-3">
+                    Average Lease Length: <span className="font-bold text-blue-600">{watch('analysisAverageLeaseLength') || 12}</span> months
                   </label>
                   <input
                     type="range"
-                    id="averageLeaseLength"
-                    {...register('averageLeaseLength', { valueAsNumber: true })}
+                    id="analysisAverageLeaseLength"
+                    {...register('analysisAverageLeaseLength', { valueAsNumber: true })}
                     min="1"
                     max="60"
                     step="1"
                     defaultValue="12"
-                    className="w-full h-2 bg-blue-200 rounded-lg appearance-none cursor-pointer slider"
+                    className="w-full h-3 bg-blue-200 rounded-lg appearance-none cursor-pointer slider"
                   />
-                  <div className="flex justify-between text-xs text-gray-500 mt-1">
-                    <span>1 mo</span>
-                    <span>60 mos</span>
+                  <div className="flex justify-between text-sm text-gray-500 mt-2">
+                    <span>1 month</span>
+                    <span>12 months</span>
+                    <span>36 months</span>
+                    <span>60 months</span>
                   </div>
                 </div>
-                
-                <div>
-                  <label htmlFor="vacancyRate" className="block text-sm font-medium text-slate-700 mb-2">
-                    <span className="flex items-center gap-1">
-                      Vacancy Rate: <span className="font-bold text-blue-600">{watch('vacancyRate') || 5}%</span> per year
-                      <span className="text-blue-600">✏️</span>
-                    </span>
+              )}
+              
+              {showVacancySlider && (
+                <div className="mt-4 p-4 bg-white border border-blue-200 rounded-lg shadow-sm">
+                  <label className="block text-sm font-medium text-slate-700 mb-3">
+                    Vacancy Rate: <span className="font-bold text-blue-600">{watch('vacancyRate') || 5}%</span> per year
                   </label>
                   <input
                     type="range"
@@ -1045,14 +1275,16 @@ export default function SummaryStep() {
                     max="30"
                     step="0.5"
                     defaultValue="5"
-                    className="w-full h-2 bg-blue-200 rounded-lg appearance-none cursor-pointer slider"
+                    className="w-full h-3 bg-blue-200 rounded-lg appearance-none cursor-pointer slider"
                   />
-                  <div className="flex justify-between text-xs text-gray-500 mt-1">
+                  <div className="flex justify-between text-sm text-gray-500 mt-2">
                     <span>0%</span>
+                    <span>10%</span>
+                    <span>20%</span>
                     <span>30%</span>
                   </div>
                 </div>
-              </div>
+              )}
             </div>
           </div>
 
@@ -1137,10 +1369,6 @@ export default function SummaryStep() {
             </p>
           </div>
         </div>
-      )}
-
-      {/* Close the main conditional for complete analysis */}
-      </>
       )}
     </>
   );

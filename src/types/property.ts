@@ -60,22 +60,34 @@ export interface RehabCostItem {
   amount: number;
 }
 
+export interface YearlyRehabCost {
+  year: number;
+  items: RehabCostItem[];
+}
+
 export interface RehabData {
   hardCosts: RehabCostItem[];
   softCosts: RehabCostItem[];
-  lostRevenueAndCosts: RehabCostItem[];
+  lostRevenueAndCosts: YearlyRehabCost[];
 }
 
 export interface PropertyData {
   address: string;
   purchasePrice: number;
   propertyType: PropertyType;
-  projectedRentGrowth: number;
-  holdPeriod: number;
-  averageLeaseLength: number;
-  expenseGrowthRate: number;
-  appreciationRate: number;
-  vacancyRate: number;
+  hasRehabWork: boolean;
+  incomeRentGrowth: number;              // Rent growth from Income section
+  incomeAppreciationRate: number;        // Appreciation rate from Income section
+  projectedRentGrowth: number;           // Rent growth for analysis (from Summary)
+  holdPeriod: number;                    // Property hold period (from Property Information)
+  analysisHoldPeriod: number;           // Analysis hold period (used in Summary calculations)
+  averageLeaseLength: number;           // Average lease length from Income section
+  analysisAverageLeaseLength: number;   // Average lease length for analysis (from Summary)
+  expenseGrowthRate: number;            // Expense growth rate for analysis (from Summary)
+  expensesExpenseGrowthRate: number;    // Expense growth rate from Expenses section
+  appreciationRate: number;              // Appreciation rate for analysis (from Summary)
+  vacancyRate: number;                  // Vacancy rate for analysis (from Summary)
+  expensesVacancyRate: number;          // Vacancy rate from Expenses section
   units: Unit[];
   otherIncome?: OtherIncomeItem[];
   finance: FinanceData;
@@ -88,12 +100,19 @@ export interface PropertySummary {
   address: string;
   purchasePrice: number;
   propertyType: PropertyType;
-  projectedRentGrowth: number;
-  holdPeriod: number;
-  averageLeaseLength: number;
-  expenseGrowthRate: number;
-  appreciationRate: number;
-  vacancyRate: number;
+  hasRehabWork: boolean;
+  incomeRentGrowth: number;              // Rent growth from Income section
+  incomeAppreciationRate: number;        // Appreciation rate from Income section
+  projectedRentGrowth: number;           // Rent growth for analysis (from Summary)
+  holdPeriod: number;                    // Property hold period (from Property Information)
+  analysisHoldPeriod: number;           // Analysis hold period (used in Summary calculations)
+  averageLeaseLength: number;           // Average lease length from Income section
+  analysisAverageLeaseLength: number;   // Average lease length for analysis (from Summary)
+  expenseGrowthRate: number;            // Expense growth rate for analysis (from Summary)
+  expensesExpenseGrowthRate: number;    // Expense growth rate from Expenses section
+  appreciationRate: number;              // Appreciation rate for analysis (from Summary)
+  vacancyRate: number;                  // Vacancy rate for analysis (from Summary)
+  expensesVacancyRate: number;          // Vacancy rate from Expenses section
   units: Unit[];
   otherIncome?: OtherIncomeItem[];
   finance: FinanceData;

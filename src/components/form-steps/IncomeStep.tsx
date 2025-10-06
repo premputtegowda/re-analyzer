@@ -43,6 +43,91 @@ export default function IncomeStep() {
         <h2 className="text-2xl font-bold text-slate-800">Step 3: Income</h2>
         <p className="text-slate-500">Review and edit your unit details below.</p>
       </div>
+      
+      {/* Rent Growth and Property Appreciation Fields */}
+      <div className="mb-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <label htmlFor="incomeRentGrowth" className="block text-sm font-medium text-slate-700 mb-1">
+            Annual Rent Growth (%) <span className="text-red-500">*</span>
+          </label>
+          <input
+            type="number"
+            id="incomeRentGrowth"
+            step="0.1"
+            {...register('incomeRentGrowth', { 
+              required: 'Annual rent growth is required',
+              valueAsNumber: true,
+              min: { value: -10, message: 'Rent growth must be at least -10%' },
+              max: { value: 20, message: 'Rent growth cannot exceed 20%' }
+            })}
+            className={`w-full px-3 py-2 border rounded-md shadow-sm ${
+              errors.incomeRentGrowth ? 'border-red-500 focus:border-red-500' : 'border-slate-300'
+            }`}
+            placeholder="2.0"
+          />
+          {errors.incomeRentGrowth && (
+            <p className="mt-1 text-sm text-red-600">{errors.incomeRentGrowth.message}</p>
+          )}
+          <p className="text-sm text-slate-500 mt-1">
+            Expected annual percentage increase in rental income
+          </p>
+        </div>
+        
+        <div>
+          <label htmlFor="incomeAppreciationRate" className="block text-sm font-medium text-slate-700 mb-1">
+            Property Appreciation (%) <span className="text-red-500">*</span>
+          </label>
+          <input
+            type="number"
+            id="incomeAppreciationRate"
+            step="0.1"
+            {...register('incomeAppreciationRate', { 
+              required: 'Property appreciation rate is required',
+              valueAsNumber: true,
+              min: { value: -5, message: 'Appreciation rate must be at least -5%' },
+              max: { value: 15, message: 'Appreciation rate cannot exceed 15%' }
+            })}
+            className={`w-full px-3 py-2 border rounded-md shadow-sm ${
+              errors.incomeAppreciationRate ? 'border-red-500 focus:border-red-500' : 'border-slate-300'
+            }`}
+            placeholder="2.0"
+          />
+          {errors.incomeAppreciationRate && (
+            <p className="mt-1 text-sm text-red-600">{errors.incomeAppreciationRate.message}</p>
+          )}
+          <p className="text-sm text-slate-500 mt-1">
+            Expected annual percentage increase in property value
+          </p>
+        </div>
+      </div>
+      
+      {/* Average Lease Length Field */}
+      <div className="mb-6">
+        <label htmlFor="averageLeaseLength" className="block text-sm font-medium text-slate-700 mb-1">
+          Average Lease Length (Months) <span className="text-red-500">*</span>
+        </label>
+        <input
+          type="number"
+          id="averageLeaseLength"
+          {...register('averageLeaseLength', { 
+            required: 'Average lease length is required',
+            valueAsNumber: true,
+            min: { value: 1, message: 'Lease length must be at least 1 month' },
+            max: { value: 60, message: 'Lease length cannot exceed 60 months' }
+          })}
+          className={`w-full px-3 py-2 border rounded-md shadow-sm ${
+            errors.averageLeaseLength ? 'border-red-500 focus:border-red-500' : 'border-slate-300'
+          }`}
+          placeholder="12"
+        />
+        {errors.averageLeaseLength && (
+          <p className="mt-1 text-sm text-red-600">{errors.averageLeaseLength.message}</p>
+        )}
+        <p className="text-sm text-slate-500 mt-1">
+          Typical duration of tenant leases in months
+        </p>
+      </div>
+      
       <div className="space-y-4">
 
         <h3 className="text-lg font-medium text-slate-800">Unit Summary</h3>

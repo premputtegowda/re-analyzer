@@ -189,7 +189,7 @@ export default function FinancingStep() {
           {...register('finance.closingCosts', { 
             required: 'Closing costs is required',
             valueAsNumber: true,
-            min: { value: 0, message: 'Closing costs must be 0 or greater' }
+            min: { value: 1, message: 'Closing costs must be greater than 0' }
           })}
           className={`w-full px-3 py-2 border rounded-md shadow-sm ${
             errors.finance?.closingCosts ? 'border-red-500 focus:border-red-500' : 'border-slate-300'

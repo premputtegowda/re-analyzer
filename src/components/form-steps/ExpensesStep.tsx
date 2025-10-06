@@ -72,6 +72,63 @@ export default function ExpensesStep() {
         <p className="text-slate-500">Add any recurring monthly expenses.</p>
       </div>
       
+      {/* Expense Growth Rate and Vacancy Rate Fields */}
+      <div className="mb-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <label htmlFor="expensesExpenseGrowthRate" className="block text-sm font-medium text-slate-700 mb-1">
+            Expense Growth Rate (%) <span className="text-red-500">*</span>
+          </label>
+          <input
+            type="number"
+            id="expensesExpenseGrowthRate"
+            step="0.1"
+            {...register('expensesExpenseGrowthRate', { 
+              required: 'Expense growth rate is required',
+              valueAsNumber: true,
+              min: { value: -10, message: 'Expense growth rate must be at least -10%' },
+              max: { value: 20, message: 'Expense growth rate cannot exceed 20%' }
+            })}
+            className={`w-full px-3 py-2 border rounded-md shadow-sm ${
+              errors.expensesExpenseGrowthRate ? 'border-red-500 focus:border-red-500' : 'border-slate-300'
+            }`}
+            placeholder="3.0"
+          />
+          {errors.expensesExpenseGrowthRate && (
+            <p className="mt-1 text-sm text-red-600">{errors.expensesExpenseGrowthRate.message}</p>
+          )}
+          <p className="text-sm text-slate-500 mt-1">
+            Expected annual percentage increase in expenses
+          </p>
+        </div>
+        
+        <div>
+          <label htmlFor="expensesVacancyRate" className="block text-sm font-medium text-slate-700 mb-1">
+            Vacancy Rate (%) <span className="text-red-500">*</span>
+          </label>
+          <input
+            type="number"
+            id="expensesVacancyRate"
+            step="0.1"
+            {...register('expensesVacancyRate', { 
+              required: 'Vacancy rate is required',
+              valueAsNumber: true,
+              min: { value: 0, message: 'Vacancy rate must be at least 0%' },
+              max: { value: 100, message: 'Vacancy rate cannot exceed 100%' }
+            })}
+            className={`w-full px-3 py-2 border rounded-md shadow-sm ${
+              errors.expensesVacancyRate ? 'border-red-500 focus:border-red-500' : 'border-slate-300'
+            }`}
+            placeholder="5.0"
+          />
+          {errors.expensesVacancyRate && (
+            <p className="mt-1 text-sm text-red-600">{errors.expensesVacancyRate.message}</p>
+          )}
+          <p className="text-sm text-slate-500 mt-1">
+            Expected percentage of time units remain vacant
+          </p>
+        </div>
+      </div>
+      
       <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
         <div>
           <label htmlFor="expenses.annualPropertyTaxes" className="block text-sm font-medium text-slate-700 mb-1">

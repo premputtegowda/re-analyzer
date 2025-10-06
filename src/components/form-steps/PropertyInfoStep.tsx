@@ -15,6 +15,7 @@ export default function PropertyInfoStep() {
   });
 
   const propertyType = watch('propertyType');
+  const hasRehabWork = watch('hasRehabWork');
 
   const handlePropertyTypeChange = (type: PropertyData['propertyType']) => {
     setValue('propertyType', type);
@@ -74,6 +75,27 @@ export default function PropertyInfoStep() {
             <p className="mt-1 text-sm text-red-600">{errors.purchasePrice.message}</p>
           )}
         </div>
+        <div>
+          <label htmlFor="holdPeriod" className="block text-sm font-medium text-slate-700 mb-1">
+            Hold Period (Years)
+          </label>
+          <input
+            type="number"
+            id="holdPeriod"
+            {...register('holdPeriod', { 
+              valueAsNumber: true,
+              min: { value: 1, message: 'Hold period must be at least 1 year' },
+              max: { value: 30, message: 'Hold period cannot exceed 30 years' }
+            })}
+            className={`w-full px-3 py-2 border rounded-md shadow-sm ${
+              errors.holdPeriod ? 'border-red-500 focus:border-red-500' : 'border-slate-300'
+            }`}
+            placeholder="5"
+          />
+          {errors.holdPeriod && (
+            <p className="mt-1 text-sm text-red-600">{errors.holdPeriod.message}</p>
+          )}
+        </div>
       </div>
 
       <Controller
@@ -87,6 +109,34 @@ export default function PropertyInfoStep() {
           />
         )}
       />
+
+      <div className="mb-6">
+        <label className="block text-sm font-medium text-slate-700 mb-3">
+          Is Rehab or Development Work Required?
+        </label>
+        <div className="relative inline-flex">
+          <input
+            type="hidden"
+            {...register('hasRehabWork')}
+          />
+          <button
+            type="button"
+            onClick={() => setValue('hasRehabWork', !hasRehabWork)}
+            className={`relative inline-flex h-6 w-12 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-rose-500 focus:ring-offset-2 ${
+              hasRehabWork ? 'bg-rose-600' : 'bg-gray-200'
+            }`}
+          >
+            <span
+              className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                hasRehabWork ? 'translate-x-7' : 'translate-x-1'
+              }`}
+            />
+          </button>
+          <span className="ml-3 text-sm font-medium text-slate-700">
+            {hasRehabWork ? 'Yes' : 'No'}
+          </span>
+        </div>
+      </div>
 
       <hr className="my-6" />
 
