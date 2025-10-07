@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useFormContext } from 'react-hook-form';
 import { PropertyData } from '../../types/property';
 import { ChevronDown, ChevronUp, AlertTriangle, Check, X } from 'lucide-react';
-import { XAxis, YAxis, ResponsiveContainer, LineChart, Line, CartesianGrid, Tooltip, Legend } from 'recharts';
+import { XAxis, YAxis, ResponsiveContainer, LineChart, Line, CartesianGrid, Tooltip, Legend, PieChart, Pie, Cell } from 'recharts';
 import { generateChartData } from '../../utils/calculations';
 
 interface SummaryStepProps {
@@ -1205,17 +1205,70 @@ export default function SummaryStep({ touchedSections }: SummaryStepProps) {
             isCashFlowCollapsed ? 'sm:block hidden' : 'block'
           }`}>
             <div className="space-y-4">
-              {chartData.map((item) => (
-                <div key={item.name}>
-                  <div className="flex justify-between items-center mb-1">
-                    <p className="text-base sm:text-lg font-semibold text-slate-800">{item.name}</p>
-                    <p className="text-base sm:text-lg font-semibold text-slate-800">${item.value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+              {/* Pie Chart with Direct Labels */}
+              <div className="w-full">
+                <ResponsiveContainer width="100%" height={400}>
+                  <PieChart>
+                    <Pie
+                      data={chartData.filter(item => item.value > 0)} // Only show positive values
+                      cx="50%"
+                      cy="50%"
+                      labelLine={true}
+                      label={({ name, value, percent }: any) => 
+                        `${name}: $${(value as number).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })} (${((percent as number) * 100).toFixed(1)}%)`
+                      }
+                      outerRadius={120}
+                      innerRadius={50}
+                      paddingAngle={2}
+                      dataKey="value"
+                    >
+                      {chartData.filter(item => item.value > 0).map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.fill} />
+                      ))}
+                    </Pie>
+                    <Tooltip 
+                      formatter={(value: number) => [`$${value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, 'Amount']}
+                      labelStyle={{ color: '#374151' }}
+                      contentStyle={{ backgroundColor: '#F9FAFB', border: '1px solid #E5E7EB', borderRadius: '6px' }}
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+
+              {/* Summary for Negative Values and Total */}
+              <div className="mt-6 space-y-3">
+                <h6 className="text-lg font-semibold text-slate-800 mb-4">Complete Cash Flow Summary</h6>
+                
+                {/* Show negative values that aren't in the pie chart */}
+                {chartData.filter(item => item.value <= 0).map((item) => (
+                  <div key={item.name} className="flex justify-between items-center p-3 rounded-lg bg-red-50">
+                    <div className="flex items-center gap-3">
+                      <div 
+                        className="w-4 h-4 rounded-full" 
+                        style={{ backgroundColor: item.fill }}
+                      ></div>
+                      <p className="text-sm font-medium text-slate-700">{item.name}</p>
+                    </div>
+                    <p className="text-sm font-semibold text-red-600">
+                      ${item.value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </p>
                   </div>
-                  <div className="w-full bg-gray-200 rounded-full h-2.5">
-                    <div className="h-2.5 rounded-full" style={{ width: `${(item.value / maxValue) * 100}%`, backgroundColor: item.fill }}></div>
+                ))}
+                
+                {/* Net Cash Flow Summary */}
+                <div className="pt-3 border-t border-slate-200">
+                  <div className="flex justify-between items-center p-3 rounded-lg bg-blue-50">
+                    <p className="text-base font-bold text-slate-800">Net Monthly Cash Flow</p>
+                    <p className={`text-base font-bold ${
+                      (chartData.find(item => item.name === 'Average Cash Flow')?.value || 0) >= 0 
+                        ? 'text-green-600' 
+                        : 'text-red-600'
+                    }`}>
+                      ${(chartData.find(item => item.name === 'Average Cash Flow')?.value || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </p>
                   </div>
                 </div>
-              ))}
+              </div>
               
               {/* Acquisition Cost Breakdown Section */}
               <div className="mt-6 pt-6 border-t border-slate-200">
