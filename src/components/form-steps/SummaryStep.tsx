@@ -24,6 +24,7 @@ export default function SummaryStep({ touchedSections }: SummaryStepProps) {
   const [showHoldPeriodSlider, setShowHoldPeriodSlider] = useState<boolean>(false);
   const [showLeaseSlider, setShowLeaseSlider] = useState<boolean>(false);
   const [showVacancySlider, setShowVacancySlider] = useState<boolean>(false);
+  const [selectedBreakdownYear, setSelectedBreakdownYear] = useState<number>(1);
 
   // Function to collapse all sliders except the specified one
   const collapseAllSlidersExcept = (activeSlider: string) => {
@@ -68,6 +69,17 @@ export default function SummaryStep({ touchedSections }: SummaryStepProps) {
 
     return totalUnitRent + totalOtherIncome;
   };
+
+  const calculateVacancyAmount = () => {
+    const totalUnitRent = formData.units?.reduce((acc, unit) => {
+      const rent = unit.monthlyRent || 0;
+      const numberOfUnits = unit.numberOfUnits || 1;
+      return acc + (rent * numberOfUnits);
+    }, 0) || 0;
+
+    const vacancyRate = (formData.vacancyRate || 5) / 100;
+    return totalUnitRent * vacancyRate;
+  };
   
   const calculateDownPaymentAmount = () => {
     const { purchasePrice, finance } = formData;
@@ -108,14 +120,6 @@ export default function SummaryStep({ touchedSections }: SummaryStepProps) {
     return hardCosts + softCosts;
   };
 
-  const calculateTotalLostRevenue = () => {
-      const { rehab } = formData;
-      if (!rehab || !rehab.lostRevenueAndCosts) return 0;
-      return rehab.lostRevenueAndCosts.reduce((acc, yearData) => 
-        acc + yearData.items.reduce((yearAcc, item) => yearAcc + (item.amount || 0), 0), 0
-      );
-  };
-
   const calculateAcquisitionCost = () => {
     const downPayment = calculateDownPaymentAmount();
     const closingCosts = formData.finance?.closingCosts || 0;
@@ -123,9 +127,8 @@ export default function SummaryStep({ touchedSections }: SummaryStepProps) {
     const otherLoanCosts = formData.finance?.otherCosts || 0;
     const oneTimeExpenses = calculateTotalOneTimeExpenses();
     const developmentCosts = calculateTotalDevelopmentCosts();
-    const lostRevenue = calculateTotalLostRevenue();
 
-    return downPayment + closingCosts + pointsAmount + otherLoanCosts + oneTimeExpenses + developmentCosts + lostRevenue;
+    return downPayment + closingCosts + pointsAmount + otherLoanCosts + oneTimeExpenses + developmentCosts;
   };
   
   const calculateMonthlyPayment = () => {
@@ -160,11 +163,15 @@ export default function SummaryStep({ touchedSections }: SummaryStepProps) {
 
     const percentageBasedExpenses =
       ((calculateTotalMonthlyIncome() * (expenses.repairsMaintenancePercentage || 0)) / 100) +
-      ((calculateTotalMonthlyIncome() * (expenses.propertyManagementPercentage || 0)) / 100);
+      ((calculateTotalMonthlyIncome() * (expenses.propertyManagementPercentage || 0)) / 100) +
+      ((calculateTotalMonthlyIncome() * (expenses.replacementReserves || 0)) / 100);
       
     const customRecurringExpenses = expenses.customExpenses.reduce((acc, item) => acc + (item.amount || 0), 0);
 
-    return monthlyTaxes + monthlyInsurance + fixedMonthlyExpenses + percentageBasedExpenses + customRecurringExpenses;
+    // Add vacancy rate as an operating expense
+    const vacancyAmount = calculateVacancyAmount();
+
+    return monthlyTaxes + monthlyInsurance + fixedMonthlyExpenses + percentageBasedExpenses + customRecurringExpenses + vacancyAmount;
   };
 
   const calculateCashOnCashROI = () => {
@@ -225,6 +232,246 @@ export default function SummaryStep({ touchedSections }: SummaryStepProps) {
     return rate * 100; // Convert to percentage
   };
 
+  // Calculate current monthly lost revenue (Year 1)
+  const calculateCurrentMonthlyLostRevenue = () => {
+    if (!formData.hasRehabRevenueImpact) return 0;
+    
+    const lostRevenueData = formData.rehab?.lostRevenueAndCosts || [];
+    const year1Data = lostRevenueData.find(data => data.year === 1);
+    
+    if (!year1Data) return 0;
+    
+    // Calculate total annual lost revenue for Year 1
+    const annualLostRevenue = year1Data.items.reduce((acc, item) => {
+      // Only include "Lost Revenue" category items
+      if (item.category && item.category.toLowerCase() === 'lost revenue') {
+        return acc + (item.amount || 0);
+      }
+      return acc;
+    }, 0);
+    
+    // Convert annual to monthly
+    return annualLostRevenue / 12;
+  };
+
+  // Calculate current monthly rehab costs (Year 1) - excluding Lost Revenue
+  const calculateCurrentMonthlyRehabCosts = () => {
+    if (!formData.hasRehabRevenueImpact) return [];
+    
+    const lostRevenueData = formData.rehab?.lostRevenueAndCosts || [];
+    const year1Data = lostRevenueData.find(data => data.year === 1);
+    
+    if (!year1Data) return [];
+    
+    // Get all categories except "Lost Revenue"
+    const rehabCosts = year1Data.items
+      .filter(item => item.category && item.category.toLowerCase() !== 'lost revenue')
+      .map(item => ({
+        name: item.category || 'Rehab Cost',
+        value: (item.amount || 0) / 12, // Convert annual to monthly
+        fill: '#EF4444', // Red color for rehab costs
+        description: 'Monthly rehab-related cost',
+        isRehabCost: true
+      }))
+      .filter(cost => cost.value > 0); // Only include positive values
+    
+    return rehabCosts;
+  };
+
+  // Calculate rehab costs for all years in holding period
+  const calculateAllYearsRehabCosts = () => {
+    if (!formData.hasRehabRevenueImpact) return {};
+    
+    const lostRevenueData = formData.rehab?.lostRevenueAndCosts || [];
+    const holdPeriod = formData.analysisHoldPeriod || 5;
+    const allYearsCosts: { [key: number]: any[] } = {};
+    
+    for (let year = 1; year <= holdPeriod; year++) {
+      const yearData = lostRevenueData.find(data => data.year === year);
+      
+      if (yearData) {
+        const rehabCosts = yearData.items
+          .filter(item => item.category && item.category.toLowerCase() !== 'lost revenue')
+          .map(item => ({
+            name: item.category || 'Rehab Cost',
+            value: (item.amount || 0) / 12, // Convert annual to monthly
+            fill: '#EF4444',
+            description: 'Monthly rehab-related cost',
+            isRehabCost: true
+          }))
+          .filter(cost => cost.value > 0);
+        
+        allYearsCosts[year] = rehabCosts;
+      } else {
+        allYearsCosts[year] = [];
+      }
+    }
+    
+    return allYearsCosts;
+  };
+
+  // Calculate lost revenue for all years in holding period
+  const calculateAllYearsLostRevenue = () => {
+    if (!formData.hasRehabRevenueImpact) return {};
+    
+    const lostRevenueData = formData.rehab?.lostRevenueAndCosts || [];
+    const holdPeriod = formData.analysisHoldPeriod || 5;
+    const allYearsLostRevenue: { [key: number]: number } = {};
+    
+    for (let year = 1; year <= holdPeriod; year++) {
+      const yearData = lostRevenueData.find(data => data.year === year);
+      
+      if (yearData) {
+        const annualLostRevenue = yearData.items
+          .filter(item => item.category && item.category.toLowerCase() === 'lost revenue')
+          .reduce((acc, item) => acc + (item.amount || 0), 0);
+        
+        allYearsLostRevenue[year] = annualLostRevenue / 12; // Convert to monthly
+      } else {
+        allYearsLostRevenue[year] = 0;
+      }
+    }
+    
+    return allYearsLostRevenue;
+  };
+
+  // Get all years data
+  const allYearsRehabCosts = calculateAllYearsRehabCosts();
+  const allYearsLostRevenue = calculateAllYearsLostRevenue();
+  const holdPeriod = formData.analysisHoldPeriod || 5;
+
+  // Calculate expense breakdown for a specific year
+  const calculateExpenseBreakdownForYear = (year: number) => {
+    const rentGrowthRate = (formData.projectedRentGrowth || 2) / 100;
+    const expenseGrowthRate = (formData.expenseGrowthRate || 3) / 100;
+    const baseMonthlyIncome = calculateTotalMonthlyIncome();
+    const projectedMonthlyIncome = baseMonthlyIncome * Math.pow(1 + rentGrowthRate, year - 1);
+
+    const baseExpenseData = [
+      // Property Taxes and Insurance (with growth)
+      { 
+        name: 'Property Taxes', 
+        value: ((formData.expenses?.annualPropertyTaxes || 0) / 12) * Math.pow(1 + expenseGrowthRate, year - 1), 
+        fill: '#F97316',
+        description: 'Monthly property taxes' 
+      },
+      { 
+        name: 'Property Insurance', 
+        value: ((formData.expenses?.annualPropertyInsurance || 0) / 12) * Math.pow(1 + expenseGrowthRate, year - 1), 
+        fill: '#EAB308',
+        description: 'Monthly property insurance' 
+      },
+
+      // Fixed Monthly Expenses (with growth)
+      ...(formData.expenses?.hoa ? [{ 
+        name: 'HOA Fees', 
+        value: formData.expenses.hoa * Math.pow(1 + expenseGrowthRate, year - 1), 
+        fill: '#84CC16',
+        description: 'Monthly HOA fees' 
+      }] : []),
+      ...(formData.expenses?.water ? [{ 
+        name: 'Water', 
+        value: formData.expenses.water * Math.pow(1 + expenseGrowthRate, year - 1), 
+        fill: '#06B6D4',
+        description: 'Monthly water costs' 
+      }] : []),
+      ...(formData.expenses?.gas ? [{ 
+        name: 'Gas', 
+        value: formData.expenses.gas * Math.pow(1 + expenseGrowthRate, year - 1), 
+        fill: '#F59E0B',
+        description: 'Monthly gas costs' 
+      }] : []),
+      ...(formData.expenses?.electricity ? [{ 
+        name: 'Electricity', 
+        value: formData.expenses.electricity * Math.pow(1 + expenseGrowthRate, year - 1), 
+        fill: '#EAB308',
+        description: 'Monthly electricity costs' 
+      }] : []),
+      ...(formData.expenses?.landscapingSnowRemoval ? [{ 
+        name: 'Landscaping/Snow Removal', 
+        value: formData.expenses.landscapingSnowRemoval * Math.pow(1 + expenseGrowthRate, year - 1), 
+        fill: '#22C55E',
+        description: 'Monthly landscaping and snow removal' 
+      }] : []),
+      ...(formData.expenses?.internet ? [{ 
+        name: 'Internet', 
+        value: formData.expenses.internet * Math.pow(1 + expenseGrowthRate, year - 1), 
+        fill: '#3B82F6',
+        description: 'Monthly internet costs' 
+      }] : []),
+      ...(formData.expenses?.security ? [{ 
+        name: 'Security', 
+        value: formData.expenses.security * Math.pow(1 + expenseGrowthRate, year - 1), 
+        fill: '#8B5CF6',
+        description: 'Monthly security costs' 
+      }] : []),
+      ...(formData.expenses?.administrativeManagement ? [{ 
+        name: 'Administrative/Management', 
+        value: formData.expenses.administrativeManagement * Math.pow(1 + expenseGrowthRate, year - 1), 
+        fill: '#EC4899',
+        description: 'Monthly administrative and management costs' 
+      }] : []),
+
+      // Percentage-based Expenses (based on projected income for this year)
+      ...(formData.expenses?.repairsMaintenancePercentage ? [{ 
+        name: `Repairs & Maintenance (${formData.expenses.repairsMaintenancePercentage}%)`, 
+        value: ((projectedMonthlyIncome * formData.expenses.repairsMaintenancePercentage) / 100), 
+        fill: '#F97316',
+        description: 'Percentage of income for repairs and maintenance' 
+      }] : []),
+      ...(formData.expenses?.propertyManagementPercentage ? [{ 
+        name: `Property Management (${formData.expenses.propertyManagementPercentage}%)`, 
+        value: ((projectedMonthlyIncome * formData.expenses.propertyManagementPercentage) / 100), 
+        fill: '#F59E0B',
+        description: 'Percentage of income for property management' 
+      }] : []),
+      ...(formData.expenses?.replacementReserves ? [{ 
+        name: `Replacement Reserves (${formData.expenses.replacementReserves}%)`, 
+        value: ((projectedMonthlyIncome * formData.expenses.replacementReserves) / 100), 
+        fill: '#8B5CF6',
+        description: 'Percentage of income for replacement reserves' 
+      }] : []),
+
+      // Custom Expenses (with growth)
+      ...(formData.expenses?.customExpenses?.filter(expense => expense.amount && expense.amount > 0).map((expense, index) => ({
+        name: expense.category || `Custom Expense ${index + 1}`,
+        value: expense.amount * Math.pow(1 + expenseGrowthRate, year - 1),
+        fill: ['#6366F1', '#EC4899', '#10B981', '#F59E0B', '#8B5CF6'][index % 5],
+        description: 'Custom monthly expense'
+      })) || []),
+
+      // Rehab-related Costs for this year
+      ...(allYearsRehabCosts[year] || [])
+    ].filter(expense => expense.value > 0);
+
+    return baseExpenseData;
+  };
+
+  // Calculate income breakdown for a specific year
+  const calculateIncomeBreakdownForYear = (year: number) => {
+    const rentGrowthRate = (formData.projectedRentGrowth || 2) / 100;
+
+    return [
+      // Unit Rental Income (with growth)
+      ...(formData.units?.map((unit, index) => ({
+        name: `Unit ${index + 1} (${unit.numberOfUnits || 1} unit${(unit.numberOfUnits || 1) > 1 ? 's' : ''})`,
+        value: ((unit.monthlyRent || 0) * (unit.numberOfUnits || 1)) * Math.pow(1 + rentGrowthRate, year - 1),
+        fill: ['#10B981', '#22C55E', '#16A34A', '#15803D', '#166534'][index % 5],
+        description: `Monthly rental income`,
+        isIncome: true
+      })) || []),
+
+      // Other Income Sources (with growth)
+      ...(formData.otherIncome?.filter(income => income.amount && income.amount > 0).map((income, index) => ({
+        name: income.category || `Other Income ${index + 1}`,
+        value: income.amount * Math.pow(1 + rentGrowthRate, year - 1),
+        fill: ['#3B82F6', '#1D4ED8', '#1E40AF', '#1E3A8A', '#172554'][index % 5],
+        description: 'Additional monthly income',
+        isIncome: true
+      })) || [])
+    ].filter(income => income.value > 0);
+  };
+
   const calculateYearlyCashFlows = () => {
     const holdPeriod = formData.analysisHoldPeriod || 5;
     const rentGrowthRate = (formData.projectedRentGrowth || 2) / 100;
@@ -234,19 +481,36 @@ export default function SummaryStep({ touchedSections }: SummaryStepProps) {
     
     const yearlyCashFlows = [];
     
+    // Get lost revenue data for specific years
+    const lostRevenueData = formData.rehab?.lostRevenueAndCosts || [];
+    
     for (let year = 1; year <= holdPeriod; year++) {
       // Calculate projected monthly income for this year (compounded growth)
       const projectedMonthlyIncome = baseMonthlyIncome * Math.pow(1 + rentGrowthRate, year - 1);
       
-      // Calculate projected monthly expenses for this year (compounded growth)
-      const projectedMonthlyExpenses = baseMonthlyExpenses * Math.pow(1 + expenseGrowthRate, year - 1);
+      // Calculate lost revenue for this specific year
+      const yearLostRevenueData = lostRevenueData.find(data => data.year === year);
+      const yearlyLostRevenue = yearLostRevenueData 
+        ? yearLostRevenueData.items.reduce((acc, item) => acc + (item.amount || 0), 0)
+        : 0;
       
-      const projectedMonthlyCashFlow = projectedMonthlyIncome - projectedMonthlyExpenses;
+      // Subtract lost revenue from monthly income (lost revenue is annual, so divide by 12)
+      const adjustedMonthlyIncome = projectedMonthlyIncome - (yearlyLostRevenue / 12);
+      
+      // Calculate projected monthly expenses for this year (compounded growth)
+      const projectedMonthlyOperatingExpenses = calculateTotalMonthlyRecurringExpenses() * Math.pow(1 + expenseGrowthRate, year - 1);
+      const projectedMonthlyLoanPayment = calculateMonthlyPayment(); // Loan payment doesn't grow
+      const projectedMonthlyExpenses = projectedMonthlyOperatingExpenses + projectedMonthlyLoanPayment;
+      
+      const projectedMonthlyCashFlow = adjustedMonthlyIncome - projectedMonthlyExpenses;
       const projectedAnnualCashFlow = projectedMonthlyCashFlow * 12;
       
       yearlyCashFlows.push({
         year,
-        monthlyIncome: projectedMonthlyIncome,
+        monthlyIncome: adjustedMonthlyIncome,
+        monthlyLostIncome: yearlyLostRevenue / 12, // Monthly lost income for this year
+        monthlyOperatingExpenses: projectedMonthlyOperatingExpenses,
+        monthlyLoanPayment: projectedMonthlyLoanPayment,
         monthlyExpenses: projectedMonthlyExpenses,
         monthlyCashFlow: projectedMonthlyCashFlow,
         annualCashFlow: projectedAnnualCashFlow,
@@ -363,7 +627,6 @@ export default function SummaryStep({ touchedSections }: SummaryStepProps) {
   const averageAnnualCashFlow = calculateAverageCashFlow();
 
   // Prepare data for cash flow line chart using frontend calculation
-  const holdPeriod = formData.analysisHoldPeriod || 5;
   const frontendChartData = generateChartData(formData, holdPeriod);
   
   // Use frontend data if available, otherwise fallback to existing calculation
@@ -375,13 +638,200 @@ export default function SummaryStep({ touchedSections }: SummaryStepProps) {
     'Cash Flow': Math.round(yearData.annualCashFlow), // Annual cash flow after all expenses
   }));
 
+  // Calculate average income over the hold period
+  const averageMonthlyIncome = yearlyCashFlows.length > 0 
+    ? yearlyCashFlows.reduce((acc, year) => acc + year.monthlyIncome, 0) / yearlyCashFlows.length 
+    : totalMonthlyIncome;
+  
+  // Calculate operating expenses (excluding debt service)
+  const monthlyDebtPayment = calculateMonthlyPayment();
+  const monthlyOperatingExpenses = totalMonthlyExpenses - monthlyDebtPayment;
+  const monthlyNetIncome = averageMonthlyIncome - monthlyOperatingExpenses;
+  const averageMonthlyCashFlow = averageAnnualCashFlow / 12;
+
   const chartData = [
-    { name: 'Income', value: totalMonthlyIncome, fill: '#10B981' },
-    { name: 'Spending', value: totalMonthlyExpenses, fill: '#EF4444' },
-    { name: 'Net cash flow', value: monthlyCashFlow, fill: monthlyCashFlow >= 0 ? '#3B82F6' : '#EF4444' },
+    { name: 'Income', value: averageMonthlyIncome, fill: '#10B981' },
+    { name: 'Operating Expense', value: monthlyOperatingExpenses, fill: '#F59E0B' },
+    { name: 'Net Income', value: monthlyNetIncome, fill: monthlyNetIncome >= 0 ? '#3B82F6' : '#EF4444' },
+    { name: 'Debt Payment', value: monthlyDebtPayment, fill: '#8B5CF6' },
+    { name: 'Average Cash Flow', value: averageMonthlyCashFlow, fill: averageMonthlyCashFlow >= 0 ? '#059669' : '#DC2626' },
   ];
 
-  const maxValue = Math.max(totalMonthlyIncome, totalMonthlyExpenses);
+  // Expense breakdown data for detailed view
+  const expenseBreakdownData = [
+    // Property Taxes and Insurance
+    { 
+      name: 'Property Taxes', 
+      value: (formData.expenses?.annualPropertyTaxes || 0) / 12, 
+      fill: '#F97316',
+      description: 'Monthly property taxes' 
+    },
+    { 
+      name: 'Property Insurance', 
+      value: (formData.expenses?.annualPropertyInsurance || 0) / 12, 
+      fill: '#EAB308',
+      description: 'Monthly property insurance' 
+    },
+
+    // Fixed Monthly Expenses
+    ...(formData.expenses?.hoa ? [{ 
+      name: 'HOA Fees', 
+      value: formData.expenses.hoa, 
+      fill: '#84CC16',
+      description: 'Monthly HOA fees' 
+    }] : []),
+    ...(formData.expenses?.water ? [{ 
+      name: 'Water', 
+      value: formData.expenses.water, 
+      fill: '#06B6D4',
+      description: 'Monthly water costs' 
+    }] : []),
+    ...(formData.expenses?.gas ? [{ 
+      name: 'Gas', 
+      value: formData.expenses.gas, 
+      fill: '#F59E0B',
+      description: 'Monthly gas costs' 
+    }] : []),
+    ...(formData.expenses?.electricity ? [{ 
+      name: 'Electricity', 
+      value: formData.expenses.electricity, 
+      fill: '#EAB308',
+      description: 'Monthly electricity costs' 
+    }] : []),
+    ...(formData.expenses?.landscapingSnowRemoval ? [{ 
+      name: 'Landscaping/Snow Removal', 
+      value: formData.expenses.landscapingSnowRemoval, 
+      fill: '#22C55E',
+      description: 'Monthly landscaping and snow removal' 
+    }] : []),
+    ...(formData.expenses?.internet ? [{ 
+      name: 'Internet', 
+      value: formData.expenses.internet, 
+      fill: '#3B82F6',
+      description: 'Monthly internet costs' 
+    }] : []),
+    ...(formData.expenses?.security ? [{ 
+      name: 'Security', 
+      value: formData.expenses.security, 
+      fill: '#8B5CF6',
+      description: 'Monthly security costs' 
+    }] : []),
+    ...(formData.expenses?.administrativeManagement ? [{ 
+      name: 'Administrative/Management', 
+      value: formData.expenses.administrativeManagement, 
+      fill: '#EC4899',
+      description: 'Monthly administrative and management costs' 
+    }] : []),
+
+    // Percentage-based Expenses
+    ...(formData.expenses?.repairsMaintenancePercentage ? [{ 
+      name: `Repairs & Maintenance (${formData.expenses.repairsMaintenancePercentage}%)`, 
+      value: ((calculateTotalMonthlyIncome() * formData.expenses.repairsMaintenancePercentage) / 100), 
+      fill: '#F97316',
+      description: 'Percentage of income for repairs and maintenance' 
+    }] : []),
+    ...(formData.expenses?.propertyManagementPercentage ? [{ 
+      name: `Property Management (${formData.expenses.propertyManagementPercentage}%)`, 
+      value: ((calculateTotalMonthlyIncome() * formData.expenses.propertyManagementPercentage) / 100), 
+      fill: '#F59E0B',
+      description: 'Percentage of income for property management' 
+    }] : []),
+    ...(formData.expenses?.replacementReserves ? [{ 
+      name: `Replacement Reserves (${formData.expenses.replacementReserves}%)`, 
+      value: ((calculateTotalMonthlyIncome() * formData.expenses.replacementReserves) / 100), 
+      fill: '#8B5CF6',
+      description: 'Percentage of income for replacement reserves' 
+    }] : []),
+
+    // Custom Expenses
+    ...(formData.expenses?.customExpenses?.filter(expense => expense.amount && expense.amount > 0).map((expense, index) => ({
+      name: expense.category || `Custom Expense ${index + 1}`,
+      value: expense.amount,
+      fill: ['#6366F1', '#EC4899', '#10B981', '#F59E0B', '#8B5CF6'][index % 5],
+      description: 'Custom monthly expense'
+    })) || []),
+
+    // Rehab-related Costs (excluding Lost Revenue)
+    ...calculateCurrentMonthlyRehabCosts()
+  ].filter(expense => expense.value > 0); // Only show expenses with positive values
+
+  // Income breakdown data for detailed view
+  const incomeBreakdownData = [
+    // Unit Rental Income
+    ...(formData.units?.map((unit, index) => ({
+      name: `Unit ${index + 1} (${unit.numberOfUnits || 1} unit${(unit.numberOfUnits || 1) > 1 ? 's' : ''})`,
+      value: (unit.monthlyRent || 0) * (unit.numberOfUnits || 1),
+      fill: ['#10B981', '#22C55E', '#16A34A', '#15803D', '#166534'][index % 5],
+      description: `Monthly rental income`,
+      isIncome: true
+    })) || []),
+
+    // Other Income Sources
+    ...(formData.otherIncome?.filter(income => income.amount && income.amount > 0).map((income, index) => ({
+      name: income.category || `Other Income ${index + 1}`,
+      value: income.amount,
+      fill: ['#3B82F6', '#1D4ED8', '#1E40AF', '#1E3A8A', '#172554'][index % 5],
+      description: 'Additional monthly income',
+      isIncome: true
+    })) || [])
+  ].filter(income => income.value > 0); // Only show income with positive values
+
+  // Calculate gross and net income for display
+  const grossMonthlyIncome = incomeBreakdownData
+    .filter(item => 'isIncome' in item && item.isIncome)
+    .reduce((sum, item) => sum + item.value, 0);
+  
+  const vacancyDeduction = calculateVacancyAmount();
+  const monthlyLostRevenue = calculateCurrentMonthlyLostRevenue();
+  const netMonthlyIncome = grossMonthlyIncome - vacancyDeduction - monthlyLostRevenue;
+
+  // Acquisition cost breakdown data for detailed view
+  const acquisitionCostBreakdownData = [
+    {
+      name: 'Down Payment',
+      value: calculateDownPaymentAmount(),
+      fill: '#DC2626',
+      description: 'Initial cash down payment'
+    },
+    ...(formData.finance?.closingCosts ? [{
+      name: 'Closing Costs',
+      value: formData.finance.closingCosts,
+      fill: '#EA580C',
+      description: 'Loan closing and transaction costs'
+    }] : []),
+    ...(calculatePointsAmount() > 0 ? [{
+      name: 'Loan Points',
+      value: calculatePointsAmount(),
+      fill: '#F59E0B',
+      description: 'Prepaid interest points'
+    }] : []),
+    ...(formData.finance?.otherCosts ? [{
+      name: 'Other Loan Costs',
+      value: formData.finance.otherCosts,
+      fill: '#EAB308',
+      description: 'Additional loan-related costs'
+    }] : []),
+    ...(calculateTotalOneTimeExpenses() > 0 ? [{
+      name: 'One-Time Expenses',
+      value: calculateTotalOneTimeExpenses(),
+      fill: '#F97316',
+      description: 'One-time property expenses'
+    }] : []),
+    ...(calculateTotalDevelopmentCosts() > 0 ? [{
+      name: 'Development/Rehab Costs',
+      value: calculateTotalDevelopmentCosts(),
+      fill: '#EF4444',
+      description: 'Property improvement and development costs'
+    }] : [])
+  ].filter(cost => cost.value > 0); // Only show costs with positive values
+
+  const maxValue = Math.max(
+    averageMonthlyIncome, 
+    monthlyOperatingExpenses,
+    Math.abs(monthlyNetIncome),
+    monthlyDebtPayment,
+    Math.abs(averageMonthlyCashFlow)
+  );
 
   // --- Validation Functions ---
   const validateProperty = () => {
@@ -766,6 +1216,153 @@ export default function SummaryStep({ touchedSections }: SummaryStepProps) {
                   </div>
                 </div>
               ))}
+              
+              {/* Acquisition Cost Breakdown Section */}
+              <div className="mt-6 pt-6 border-t border-slate-200">
+                <h5 className="text-lg font-semibold text-slate-800 mb-3">Acquisition Cost Breakdown</h5>
+                <div className="space-y-3">
+                  {acquisitionCostBreakdownData.map((cost) => (
+                    <div key={cost.name} className="flex justify-between items-center">
+                      <div className="flex flex-col">
+                        <p className="text-sm font-medium text-slate-700">{cost.name}</p>
+                        {cost.description && (
+                          <p className="text-xs text-slate-500">{cost.description}</p>
+                        )}
+                      </div>
+                      <p className="text-sm font-semibold text-slate-800">
+                        ${cost.value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              
+              {/* Income & Expense Breakdown by Year */}
+              <div className="mt-6 pt-6 border-t border-slate-200">
+                <h5 className="text-lg font-semibold text-slate-800 mb-4">Income & Expense Breakdown by Year</h5>
+                
+                {/* Year Tabs */}
+                <div className="flex flex-wrap gap-2 mb-6 border-b border-slate-200">
+                  {Array.from({ length: holdPeriod }, (_, i) => i + 1).map((year) => (
+                    <button
+                      key={year}
+                      type="button"
+                      onClick={() => setSelectedBreakdownYear(year)}
+                      className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors ${
+                        selectedBreakdownYear === year
+                          ? 'bg-slate-100 text-slate-800 border-b-2 border-slate-800'
+                          : 'text-slate-600 hover:text-slate-800 hover:bg-slate-50'
+                      }`}
+                    >
+                      Year {year}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Selected Year Content */}
+                {(() => {
+                  const yearIncomeData = calculateIncomeBreakdownForYear(selectedBreakdownYear);
+                  const yearExpenseData = calculateExpenseBreakdownForYear(selectedBreakdownYear);
+                  const yearGrossIncome = yearIncomeData.reduce((sum, item) => sum + item.value, 0);
+                  const yearVacancyDeduction = calculateVacancyAmount() * Math.pow(1 + ((formData.projectedRentGrowth || 2) / 100), selectedBreakdownYear - 1);
+                  const yearLostRevenue = allYearsLostRevenue[selectedBreakdownYear] || 0;
+                  const yearNetIncome = yearGrossIncome - yearVacancyDeduction - yearLostRevenue;
+                  const yearTotalExpenses = yearExpenseData.reduce((sum, item) => sum + item.value, 0);
+
+                  return (
+                    <div className="space-y-6">
+                      {/* Income Breakdown for Selected Year */}
+                      <div>
+                        <h6 className="text-base font-semibold text-slate-800 mb-3">Income Breakdown - Year {selectedBreakdownYear}</h6>
+                        <div className="space-y-3">
+                          {/* Individual Income Sources */}
+                          {yearIncomeData.map((income) => (
+                            <div key={income.name} className="flex justify-between items-center">
+                              <div className="flex flex-col">
+                                <p className="text-sm font-medium text-slate-700">{income.name}</p>
+                                {income.description && (
+                                  <p className="text-xs text-slate-500">{income.description}</p>
+                                )}
+                              </div>
+                              <p className="text-sm font-semibold text-slate-800">
+                                ${income.value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}/month
+                              </p>
+                            </div>
+                          ))}
+                          
+                          {/* Income Summary */}
+                          <div className="mt-4 pt-3 border-t border-slate-200">
+                            <div className="flex justify-between items-center mb-2">
+                              <p className="text-sm font-medium text-slate-600">Gross Monthly Income</p>
+                              <p className="text-sm font-semibold text-slate-600">
+                                ${yearGrossIncome.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}/month
+                              </p>
+                            </div>
+                            {yearVacancyDeduction > 0 && (
+                              <div className="flex justify-between items-center mb-2">
+                                <div className="flex flex-col">
+                                  <p className="text-sm font-medium text-red-700">- Vacancy Rate ({formData.vacancyRate || 0}%)</p>
+                                  <p className="text-xs text-slate-500">Expected income loss due to vacancy</p>
+                                </div>
+                                <p className="text-sm font-semibold text-red-600">
+                                  -${yearVacancyDeduction.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}/month
+                                </p>
+                              </div>
+                            )}
+                            {yearLostRevenue > 0 && (
+                              <div className="flex justify-between items-center mb-2">
+                                <div className="flex flex-col">
+                                  <p className="text-sm font-medium text-red-700">- Lost Revenue (Rehab Impact)</p>
+                                  <p className="text-xs text-slate-500">Revenue loss due to rehab activities</p>
+                                </div>
+                                <p className="text-sm font-semibold text-red-600">
+                                  -${yearLostRevenue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}/month
+                                </p>
+                              </div>
+                            )}
+                            <div className="flex justify-between items-center border-t border-slate-200 pt-2">
+                              <p className="text-base font-bold text-slate-800">Net Monthly Income</p>
+                              <p className="text-base font-bold text-green-600">
+                                ${yearNetIncome.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}/month
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                      
+                      {/* Operating Expense Breakdown for Selected Year */}
+                      <div>
+                        <h6 className="text-base font-semibold text-slate-800 mb-3">Operating Expense Breakdown - Year {selectedBreakdownYear}</h6>
+                        <div className="space-y-3">
+                          {yearExpenseData.map((expense) => (
+                            <div key={expense.name} className="flex justify-between items-center">
+                              <div className="flex flex-col">
+                                <p className="text-sm font-medium text-slate-700">{expense.name}</p>
+                                {expense.description && (
+                                  <p className="text-xs text-slate-500">{expense.description}</p>
+                                )}
+                              </div>
+                              <p className="text-sm font-semibold text-slate-800">
+                                ${expense.value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}/month
+                              </p>
+                            </div>
+                          ))}
+                          
+                          {/* Expense Summary */}
+                          <div className="mt-4 pt-3 border-t border-slate-200">
+                            <div className="flex justify-between items-center">
+                              <p className="text-base font-bold text-slate-800">Total Monthly Expenses</p>
+                              <p className="text-base font-bold text-red-600">
+                                ${yearTotalExpenses.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}/month
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })()}
+              </div>
             </div>
           </div>
         </div>
@@ -850,7 +1447,14 @@ export default function SummaryStep({ touchedSections }: SummaryStepProps) {
                     <span className="hidden sm:inline">{viewMode === 'monthly' ? 'Monthly' : 'Annual'} </span>Income
                   </th>
                   <th className="px-1 sm:px-4 py-2 text-right text-xs sm:text-sm font-medium text-slate-700">
-                    <span className="hidden sm:inline">{viewMode === 'monthly' ? 'Monthly' : 'Annual'} </span>Expenses
+                    <span className="hidden sm:inline">{viewMode === 'monthly' ? 'Monthly' : 'Annual'} </span>
+                    <span className="block sm:hidden">Op. Exp</span>
+                    <span className="hidden sm:block">Operating Expenses</span>
+                  </th>
+                  <th className="px-1 sm:px-4 py-2 text-right text-xs sm:text-sm font-medium text-slate-700">
+                    <span className="hidden sm:inline">{viewMode === 'monthly' ? 'Monthly' : 'Annual'} </span>
+                    <span className="block sm:hidden">Loan</span>
+                    <span className="hidden sm:block">Loan Payment</span>
                   </th>
                   <th className="px-1 sm:px-4 py-2 text-right text-xs sm:text-sm font-medium text-slate-700">
                     <span className="hidden sm:inline">{viewMode === 'monthly' ? 'Monthly' : 'Annual'} </span>Cash Flow
@@ -881,14 +1485,28 @@ export default function SummaryStep({ touchedSections }: SummaryStepProps) {
                     <td className="px-1 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm text-right text-slate-600">
                       <span className="block sm:hidden">
                         ${viewMode === 'monthly' 
-                          ? Math.round(yearData.monthlyExpenses).toLocaleString()
-                          : Math.round(yearData.monthlyExpenses * 12).toLocaleString()
+                          ? Math.round(yearData.monthlyOperatingExpenses).toLocaleString()
+                          : Math.round(yearData.monthlyOperatingExpenses * 12).toLocaleString()
                         }
                       </span>
                       <span className="hidden sm:block">
                         ${viewMode === 'monthly' 
-                          ? yearData.monthlyExpenses.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-                          : (yearData.monthlyExpenses * 12).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                          ? yearData.monthlyOperatingExpenses.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                          : (yearData.monthlyOperatingExpenses * 12).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                        }
+                      </span>
+                    </td>
+                    <td className="px-1 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm text-right text-slate-600">
+                      <span className="block sm:hidden">
+                        ${viewMode === 'monthly' 
+                          ? Math.round(yearData.monthlyLoanPayment).toLocaleString()
+                          : Math.round(yearData.monthlyLoanPayment * 12).toLocaleString()
+                        }
+                      </span>
+                      <span className="hidden sm:block">
+                        ${viewMode === 'monthly' 
+                          ? yearData.monthlyLoanPayment.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                          : (yearData.monthlyLoanPayment * 12).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
                         }
                       </span>
                     </td>
@@ -1130,7 +1748,8 @@ export default function SummaryStep({ touchedSections }: SummaryStepProps) {
                   >
                     <span className="text-xs md:text-sm font-medium text-slate-700 text-left">
                       <span className="block">Vacancy Rate:</span>
-                      <span className="font-bold text-blue-600">{watch('vacancyRate') || 5}%</span> per year
+                      <span className="font-bold text-blue-600">{watch('vacancyRate') || 5}%</span> 
+                      <span className="font-bold text-blue-800">(${calculateVacancyAmount().toLocaleString()}/month)</span>
                     </span>
                     {showVacancySlider ? (
                       <ChevronUp className="w-3 h-3 md:w-4 md:h-4 text-slate-600 flex-shrink-0" />
@@ -1265,7 +1884,8 @@ export default function SummaryStep({ touchedSections }: SummaryStepProps) {
               {showVacancySlider && (
                 <div className="mt-4 p-4 bg-white border border-blue-200 rounded-lg shadow-sm">
                   <label className="block text-sm font-medium text-slate-700 mb-3">
-                    Vacancy Rate: <span className="font-bold text-blue-600">{watch('vacancyRate') || 5}%</span> per year
+                    Vacancy Rate: <span className="font-bold text-blue-600">{watch('vacancyRate') || 5}%</span> 
+                    <span className="font-bold text-blue-800">(${calculateVacancyAmount().toLocaleString()}/month)</span>
                   </label>
                   <input
                     type="range"

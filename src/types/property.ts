@@ -76,6 +76,7 @@ export interface PropertyData {
   purchasePrice: number;
   propertyType: PropertyType;
   hasRehabWork: boolean;
+  hasRehabRevenueImpact: boolean;
   incomeRentGrowth: number;              // Rent growth from Income section
   incomeAppreciationRate: number;        // Appreciation rate from Income section
   projectedRentGrowth: number;           // Rent growth for analysis (from Summary)
@@ -101,6 +102,7 @@ export interface PropertySummary {
   purchasePrice: number;
   propertyType: PropertyType;
   hasRehabWork: boolean;
+  hasRehabRevenueImpact: boolean;
   incomeRentGrowth: number;              // Rent growth from Income section
   incomeAppreciationRate: number;        // Appreciation rate from Income section
   projectedRentGrowth: number;           // Rent growth for analysis (from Summary)

@@ -45,6 +45,7 @@ export default function AddPropertyPage({ existingPropertyData }: AddPropertyPag
       purchasePrice: 0,
       propertyType: 'MultiFamily',
       hasRehabWork: false,
+      hasRehabRevenueImpact: false,
       incomeRentGrowth: 2,
       incomeAppreciationRate: 2,
       projectedRentGrowth: 2,

@@ -34,6 +34,16 @@ export default function ExpensesStep() {
     return (totalIncome * percentage) / 100;
   };
 
+  const calculateVacancyAmount = () => {
+    const vacancyRate = watch('expensesVacancyRate') || 0;
+    return calculatePercentageAmount(vacancyRate);
+  };
+
+  const calculateReplacementReservesAmount = () => {
+    const replacementReservesRate = watch('expenses.replacementReserves') || 0;
+    return calculatePercentageAmount(replacementReservesRate);
+  };
+
   const calculateTotalMonthlyRecurringExpenses = () => {
     if (!expenses) return 0;
 
@@ -52,11 +62,16 @@ export default function ExpensesStep() {
 
     const percentageBasedExpenses =
       calculatePercentageAmount(expenses.repairsMaintenancePercentage) +
-      calculatePercentageAmount(expenses.propertyManagementPercentage);
+      calculatePercentageAmount(expenses.propertyManagementPercentage) +
+      calculatePercentageAmount(expenses.replacementReserves);
       
     const customRecurringExpenses = expenses.customExpenses.reduce((acc, item) => acc + (item.amount || 0), 0);
 
-    return monthlyTaxes + monthlyInsurance + fixedMonthlyExpenses + percentageBasedExpenses + customRecurringExpenses;
+    // Add vacancy rate and replacement reserves amounts
+    const vacancyAmount = calculateVacancyAmount();
+    const replacementReservesAmount = calculateReplacementReservesAmount();
+
+    return monthlyTaxes + monthlyInsurance + fixedMonthlyExpenses + percentageBasedExpenses + customRecurringExpenses + vacancyAmount + replacementReservesAmount;
   };
 
   const calculateTotalOneTimeExpenses = () => {
@@ -123,8 +138,8 @@ export default function ExpensesStep() {
           {errors.expensesVacancyRate && (
             <p className="mt-1 text-sm text-red-600">{errors.expensesVacancyRate.message}</p>
           )}
-          <p className="text-sm text-slate-500 mt-1">
-            Expected percentage of time units remain vacant
+          <p className="text-sm text-slate-600 mt-1">
+            ${calculateVacancyAmount().toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}/month
           </p>
         </div>
       </div>
@@ -205,15 +220,15 @@ export default function ExpensesStep() {
         <div>
           <label htmlFor="expenses.repairsMaintenancePercentage" className="block text-sm font-medium text-slate-700 mb-1">Repairs and Maintenance (%)</label>
           <input type="number" id="expenses.repairsMaintenancePercentage" {...register('expenses.repairsMaintenancePercentage', { valueAsNumber: true })} className="w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm" />
-          <p className="text-sm text-slate-500 mt-1">
-            Calculated Amount: ${calculatePercentageAmount(expenses.repairsMaintenancePercentage).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+          <p className="text-sm text-slate-600 mt-1">
+            ${calculatePercentageAmount(expenses.repairsMaintenancePercentage).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}/month
           </p>
         </div>
         <div>
           <label htmlFor="expenses.propertyManagementPercentage" className="block text-sm font-medium text-slate-700 mb-1">Property Management (%)</label>
           <input type="number" id="expenses.propertyManagementPercentage" {...register('expenses.propertyManagementPercentage', { valueAsNumber: true })} className="w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm" />
-           <p className="text-sm text-slate-500 mt-1">
-            Calculated Amount: ${calculatePercentageAmount(expenses.propertyManagementPercentage).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+           <p className="text-sm text-slate-600 mt-1">
+            ${calculatePercentageAmount(expenses.propertyManagementPercentage).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}/month
           </p>
         </div>
         <div>
@@ -231,6 +246,9 @@ export default function ExpensesStep() {
             max="100"
             className="w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm" 
           />
+          <p className="text-sm text-slate-600 mt-1">
+            ${calculateReplacementReservesAmount().toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}/month
+          </p>
         </div>
       </div>
 
